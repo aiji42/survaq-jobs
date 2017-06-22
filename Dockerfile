@@ -19,11 +19,9 @@ RUN yarn build:$BUILD_CONTEXT
 FROM base
 ARG BUILD_CONTEXT
 
-RUN adduser worker
-
 COPY --from=builder /app/packages/$BUILD_CONTEXT/build build
 
-USER worker
+USER node
 
 ENV NODE_ENV=production
 
