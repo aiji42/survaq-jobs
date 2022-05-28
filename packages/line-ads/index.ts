@@ -1,11 +1,15 @@
 import { createHash } from "crypto";
 import { config } from "dotenv";
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import jwt from "jsonwebtoken";
 import { Report } from "./report";
 import { deleteByDate, insertRecords } from "./bigquery-client";
 
 config();
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const {
   API_SECRET_KEY = "",
@@ -27,7 +31,7 @@ const getReport = async (
   const payload = [
     createHash("sha256").update("").digest("hex"),
     "",
-    dayjs().format("YYYYMMDD"),
+    dayjs().tz("Etc/UTC").format("YYYYMMDD"),
     uri,
   ].join("\n");
 
