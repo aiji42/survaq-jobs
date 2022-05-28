@@ -5,5 +5,10 @@
   "author": "aiji42",
   "license": "MIT",
   "private": true,
-  "workspaces": ["packages/*"]
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "prettier": "^2.6.2"
+  }
 }
