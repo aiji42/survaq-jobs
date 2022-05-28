@@ -1,0 +1,10 @@
+steps:
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:$COMMIT_SHA
+      - --destination=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest
+      - --cache=true
+      - --build-arg=BUILD_CONTEXT=$_BUILD_CONTEXT
+
+substitutions:
+  _BUILD_CONTEXT:
