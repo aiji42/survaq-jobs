@@ -1,5 +1,7 @@
 FROM node:18.2-bullseye-slim as base
 
+ENV TZ=Asia/Tokyo
+
 FROM base as builder
 ARG BUILD_CONTEXT
 
