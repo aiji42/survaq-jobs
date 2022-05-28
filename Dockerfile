@@ -23,4 +23,6 @@ COPY --from=builder /app/packages/$BUILD_CONTEXT/build build
 
 USER worker
 
+ENV NODE_ENV=production
+
 CMD ["node", "build/index.js"]
