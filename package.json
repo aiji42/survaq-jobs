@@ -5,6 +5,9 @@
   "author": "aiji42",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "build:line-ads": "yarn workspace line-ads run build"
+  },
   "workspaces": [
     "packages/*"
   ],
