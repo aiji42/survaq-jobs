@@ -31,14 +31,12 @@ steps:
       - 'survaq-jobs-$_BUILD_CONTEXT-scheduler'
       - '--location'
       - 'asia-northeast1'
-      - '--schedule=\"0 * * * *\"'
+      - '--schedule="0 * * * *"'
       - '--uri=https://europe-west9-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/survaq-jobs-$_BUILD_CONTEXT:run'
       - '--http-method'
       - 'POST'
       - '--oauth-service-account-email'
       - '$PROJECT_NUMBER-compute@developer.gserviceaccount.com'
-      - '--time-zone'
-      - 'Asia/Tokyo'
 
 substitutions:
   _BUILD_CONTEXT: ''
