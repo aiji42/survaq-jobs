@@ -39,8 +39,6 @@ steps:
       - 'POST'
       - '--oauth-service-account-email'
       - '$PROJECT_NUMBER-compute@developer.gserviceaccount.com'
-      - '--time-zone'
-      - 'Asia/Tokyo'
 
 substitutions:
   _BUILD_CONTEXT: ''
