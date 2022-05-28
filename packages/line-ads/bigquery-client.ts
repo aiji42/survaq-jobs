@@ -8,14 +8,14 @@ const credentials = JSON.parse(
     '{"client_email":"","private_key":"","project_id":""}'
 ) as { client_email: string; private_key: string; project_id: "" };
 
-export const client = new BigQuery({
-  credentials,
-  scopes: [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/bigquery",
-  ],
-  projectId: credentials.project_id,
-});
+export const client = new BigQuery(
+  process.env.NODE_ENV === "production"
+    ? {}
+    : {
+        credentials,
+        projectId: credentials.project_id,
+      }
+);
 
 export const insertRecords = (
   table: string,

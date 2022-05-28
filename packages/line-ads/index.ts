@@ -10,10 +10,6 @@ config();
 const { API_SECRET_KEY = "", API_ACCESS_KEY = "" } = process.env;
 const REPORT_SIZE = 50;
 
-const sleep = (sec: number) => {
-  return new Promise((resolve) => setTimeout(resolve, sec * 1000));
-};
-
 const getReport = async (
   adaccountId: string,
   date: string
