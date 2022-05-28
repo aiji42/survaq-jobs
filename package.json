@@ -1,0 +1,9 @@
+{
+  "name": "survaq-jobs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "aiji42",
+  "license": "MIT",
+  "private": true,
+  "workspaces": ["packages/*"]
+}
