@@ -7,8 +7,16 @@ import { deleteByDate, insertRecords } from "./bigquery-client";
 
 config();
 
-const { API_SECRET_KEY = "", API_ACCESS_KEY = "" } = process.env;
+const {
+  API_SECRET_KEY = "",
+  API_ACCESS_KEY = "",
+  AD_ACCOUNT_ID = "",
+} = process.env;
 const REPORT_SIZE = 50;
+
+const sleep = (sec: number) => {
+  return new Promise((resolve) => setTimeout(resolve, sec * 1000));
+};
 
 const getReport = async (
   adaccountId: string,
@@ -109,16 +117,23 @@ const getColumns = (records: Record<string, unknown>[]) => {
 };
 
 const main = async () => {
-  const date = dayjs().format("YYYY-MM-DD");
-  const report = await getReport("A57000210607", date);
-  console.log("hits report ", report.paging.totalElements, " records");
-  const records = createRecords(report, date);
+  const startDate = dayjs().subtract(7, "day");
+  const endDate = dayjs();
 
-  if (records.length > 0) {
-    console.log("delete records date=", date);
-    await deleteByDate("ad_reports", "line", date);
-    console.log("insert records");
-    await insertRecords("ad_reports", "line", getColumns(records), records);
+  for (let date = startDate; date <= endDate; date = date.add(1, "day")) {
+    const d = date.format("YYYY-MM-DD");
+    const report = await getReport(AD_ACCOUNT_ID, d);
+    console.log("hits report ", report.paging.totalElements, " records");
+    const records = createRecords(report, d);
+
+    if (records.length > 0) {
+      console.log("delete records date=", d);
+      await deleteByDate("ad_reports", "line", d);
+      console.log("insert records");
+      await insertRecords("ad_reports", "line", getColumns(records), records);
+    }
+
+    await sleep(0.7);
   }
 };
 
