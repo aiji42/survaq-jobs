@@ -1,4 +1,4 @@
-FROM node:16.15-bullseye-slim as base
+FROM node:18.2-bullseye-slim as base
 
 FROM base as builder
 ARG BUILD_CONTEXT

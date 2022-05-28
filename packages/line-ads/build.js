@@ -7,6 +7,7 @@ build({
   sourcemap: false,
   entryPoints: ["./index.ts"],
   outfile: "./build/index.js",
+  platform: "node",
 }).catch((e) => {
   console.error(e);
   process.exit(1);

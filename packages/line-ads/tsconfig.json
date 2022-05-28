@@ -1,4 +1,7 @@
 {
-  "extends": "@tsconfig/node16/tsconfig.json",
-  "include": ["index.ts"]
+  "extends": "@tsconfig/node18/tsconfig.json",
+  "include": ["index.ts"],
+  "compilerOptions": {
+    "lib": ["es2022", "dom"]
+  }
 }
