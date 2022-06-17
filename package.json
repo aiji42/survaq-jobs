@@ -6,7 +6,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "build:line-ads": "yarn workspace line-ads run build"
+    "build:line-ads": "yarn workspace line-ads run build",
+    "build:facebook-ads": "yarn workspace facebook-ads run build"
   },
   "workspaces": [
     "packages/*"
