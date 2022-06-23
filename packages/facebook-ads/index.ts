@@ -20,6 +20,11 @@ type AdSetInsights = {
     action_values?: { action_type: string; value: string }[];
     date_start: string;
     date_stop: string;
+    ctr?: string;
+    cpc?: string;
+    cpm?: string;
+    cpp?: string;
+    cost_per_action_type?: { action_type: string; value: string }[];
   }[];
   paging: Paging;
 };
@@ -84,6 +89,11 @@ export const adReports = async (): Promise<void> => {
         "return",
         "date",
         "datetime",
+        "ctr",
+        "cpc",
+        "cpm",
+        "cpp",
+        "cpa",
       ],
       records
     );
@@ -104,13 +114,18 @@ type AdReportRecord = {
   return: number;
   date: string;
   datetime: string;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  cpp: number;
+  cpa: number;
 };
 
 const getAdReportRecords = async (
   inspectDate: string
 ): Promise<AdReportRecord[] | never> => {
   const records: AdReportRecord[] = [];
-  let next = `https://graph.facebook.com/v13.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,clicks,action_values,actions}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
+  let next = `https://graph.facebook.com/v13.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,clicks,action_values,actions,ctr,cpc,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
   while (next) {
     const res = await fetch(next).then((res) => {
       if (!res.ok) {
@@ -142,6 +157,11 @@ const getAdReportRecords = async (
             actions,
             action_values,
             date_start: date,
+            ctr,
+            cpc,
+            cpm,
+            cpp,
+            cost_per_action_type,
           }) => {
             records.push({
               id: `${setId}_${date}`,
@@ -165,6 +185,15 @@ const getAdReportRecords = async (
               ),
               date,
               datetime: `${date}T00:00:00`,
+              ctr: Number(ctr ?? 0),
+              cpc: Number(cpc ?? 0),
+              cpm: Number(cpm ?? 0),
+              cpp: Number(cpp ?? 0),
+              cpa: Number(
+                cost_per_action_type?.find(
+                  ({ action_type }) => action_type === "omni_purchase"
+                )?.value || 0
+              ),
             });
           }
         );
