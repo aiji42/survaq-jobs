@@ -12,8 +12,9 @@ steps:
       - 'beta'
       - 'run'
       - 'jobs'
-      - 'create' # update or create
+      - 'update' # update or create
       - 'survaq-jobs-$_BUILD_CONTEXT'
+      - '--image=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest'
       - '--region'
       - 'asia-northeast1'
       - '--set-env-vars'
@@ -26,7 +27,7 @@ steps:
     args:
       - 'scheduler'
       - 'jobs'
-      - 'update' # or create
+      - 'update' # update or create
       - 'http'
       - 'survaq-jobs-$_BUILD_CONTEXT-scheduler'
       - '--location'
