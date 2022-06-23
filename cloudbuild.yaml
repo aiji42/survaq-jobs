@@ -15,7 +15,7 @@ steps:
       - 'update' # or create
       - 'survaq-jobs-$_BUILD_CONTEXT'
       - '--region'
-      - 'europe-west9'
+      - 'asia-northeast1'
       - '--set-env-vars'
       - '$_ENV_VARS'
       - '--service-account'
@@ -34,7 +34,7 @@ steps:
       - '--schedule=0 * * * *'
       - '--time-zone'
       - 'Asia/Tokyo'
-      - '--uri=https://europe-west9-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/survaq-jobs-$_BUILD_CONTEXT:run'
+      - '--uri=https://asia-northeast1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/survaq-jobs-$_BUILD_CONTEXT:run'
       - '--http-method'
       - 'POST'
       - '--oauth-service-account-email'
