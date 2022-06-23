@@ -61,31 +61,31 @@ export const adReports = async (): Promise<void> => {
   const records = res.flat();
   console.log("records: ", records.length);
   if (records.length > 0)
-    await insertRecords(
+    await deleteByField(
       "ads",
       "facebook",
-      [
-        "id",
-        "account_id",
-        "account_name",
-        "set_id",
-        "set_name",
-        "impressions",
-        "spend",
-        "reach",
-        "clicks",
-        "conversions",
-        "return",
-        "date",
-        "datetime",
-      ],
-      records
+      "id",
+      records.map(({ id }) => id)
     );
-  await deleteByField(
+  await insertRecords(
     "ads",
     "facebook",
-    "id",
-    records.map(({ id }) => id)
+    [
+      "id",
+      "account_id",
+      "account_name",
+      "set_id",
+      "set_name",
+      "impressions",
+      "spend",
+      "reach",
+      "clicks",
+      "conversions",
+      "return",
+      "date",
+      "datetime",
+    ],
+    records
   );
 };
 

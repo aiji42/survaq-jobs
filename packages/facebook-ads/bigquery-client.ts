@@ -49,7 +49,7 @@ export const deleteByField = async (
   await client.query({
     query: sql.format(
       `
-    DELETE FROM ${dataset}.${table} WHERE ${field} IN ?;
+    DELETE FROM ${dataset}.${table} WHERE ${field} IN (?);
     `,
       [values]
     ),
