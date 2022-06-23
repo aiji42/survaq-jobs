@@ -179,4 +179,7 @@ const range = (start: number, end: number) =>
 const main = async () => {
   await adReports();
 };
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
