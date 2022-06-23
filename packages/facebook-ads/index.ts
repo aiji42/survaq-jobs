@@ -53,12 +53,18 @@ type FbError = {
   };
 };
 
-const { FACEBOOK_BUSINESS_ACCOUNT_ID = "", FACEBOOK_GRAPH_API_TOKEN = "" } =
-  process.env;
+const {
+  FACEBOOK_BUSINESS_ACCOUNT_ID = "",
+  FACEBOOK_GRAPH_API_TOKEN = "",
+  REPORT_DAY_RANGE = "0-7",
+} = process.env;
 
 export const adReports = async (): Promise<void> => {
+  const days = (REPORT_DAY_RANGE.split("-") as [string, string]).map(
+    Number
+  ) as [number, number];
   const res = await Promise.all<AdReportRecord[]>(
-    range(0, 7)
+    range(...days)
       .map((d) => dayjs().subtract(d, "day").format("YYYY-MM-DD"))
       .map((inspectDate) => getAdReportRecords(inspectDate))
   );
