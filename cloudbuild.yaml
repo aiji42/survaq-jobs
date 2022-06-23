@@ -12,7 +12,7 @@ steps:
       - 'beta'
       - 'run'
       - 'jobs'
-      - 'update' # or create
+      - 'create' # update or create
       - 'survaq-jobs-$_BUILD_CONTEXT'
       - '--region'
       - 'asia-northeast1'
