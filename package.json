@@ -7,7 +7,8 @@
   "private": true,
   "scripts": {
     "build:line-ads": "yarn workspace line-ads run build",
-    "build:facebook-ads": "yarn workspace facebook-ads run build"
+    "build:facebook-ads": "yarn workspace facebook-ads run build",
+    "build:shopify": "yarn workspace shopify run build"
   },
   "workspaces": [
     "packages/*"
