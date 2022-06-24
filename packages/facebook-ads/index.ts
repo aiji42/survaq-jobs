@@ -15,13 +15,13 @@ type AdSetInsights = {
     impressions: string;
     spend: string;
     reach: string;
-    clicks: string;
+    inline_link_clicks?: string;
     actions?: { action_type: string; value: string }[];
     action_values?: { action_type: string; value: string }[];
     date_start: string;
     date_stop: string;
-    ctr?: string;
-    cpc?: string;
+    inline_link_click_ctr?: string;
+    cost_per_inline_link_click?: string;
     cpm?: string;
     cpp?: string;
     cost_per_action_type?: { action_type: string; value: string }[];
@@ -131,7 +131,7 @@ const getAdReportRecords = async (
   inspectDate: string
 ): Promise<AdReportRecord[] | never> => {
   const records: AdReportRecord[] = [];
-  let next = `https://graph.facebook.com/v13.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,clicks,action_values,actions,ctr,cpc,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
+  let next = `https://graph.facebook.com/v13.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
   while (next) {
     const res = await fetch(next).then((res) => {
       if (!res.ok) {
@@ -159,12 +159,12 @@ const getAdReportRecords = async (
             impressions,
             spend,
             reach,
-            clicks,
+            inline_link_clicks,
             actions,
             action_values,
             date_start: date,
-            ctr,
-            cpc,
+            inline_link_click_ctr,
+            cost_per_inline_link_click,
             cpm,
             cpp,
             cost_per_action_type,
@@ -178,7 +178,7 @@ const getAdReportRecords = async (
               impressions: Number(impressions),
               spend: Number(spend),
               reach: Number(reach),
-              clicks: Number(clicks),
+              clicks: Number(inline_link_clicks ?? 0),
               conversions: Number(
                 actions?.find(
                   ({ action_type }) => action_type === "omni_purchase"
@@ -191,8 +191,8 @@ const getAdReportRecords = async (
               ),
               date,
               datetime: `${date}T00:00:00`,
-              ctr: Number(ctr ?? 0),
-              cpc: Number(cpc ?? 0),
+              ctr: Number(inline_link_click_ctr ?? 0),
+              cpc: Number(cost_per_inline_link_click ?? 0),
               cpm: Number(cpm ?? 0),
               cpp: Number(cpp ?? 0),
               cpa: Number(
