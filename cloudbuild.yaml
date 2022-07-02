@@ -17,6 +17,8 @@ steps:
       - '--image=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest'
       - '--region'
       - 'asia-northeast1'
+      - '--max-retries'
+      - '0'
       - '--set-env-vars'
       - '$_ENV_VARS'
       - '--service-account'
