@@ -270,6 +270,7 @@ type AdReportRecord = {
   name: string;
   account_id: string;
   set_id: string;
+  ad_id: string;
   impressions: number;
   spend: number;
   reach: number;
@@ -323,10 +324,11 @@ const getAdReportRecords = async (
           cost_per_action_type,
         }) => {
           records.push({
-            id,
+            id: `${id}_${date}`,
             name,
             account_id,
             set_id: adset_id,
+            ad_id: id,
             impressions: Number(impressions),
             spend: Number(spend),
             reach: Number(reach),
