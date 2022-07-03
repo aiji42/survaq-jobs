@@ -131,6 +131,7 @@ export const adReports = async (): Promise<void> => {
           "name",
           "account_id",
           "set_id",
+          "ad_id",
           "impressions",
           "spend",
           "reach",
