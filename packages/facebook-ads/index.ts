@@ -116,36 +116,38 @@ export const adReports = async (): Promise<void> => {
   const adRecords = resAdReportRecord.flat();
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
-    await deleteByField(
-      "ad_atoms",
-      "facebook",
-      "id",
-      adRecords.map(({ id }) => id)
-    );
-    await insertRecords(
-      "ad_atoms",
-      "facebook",
-      [
+    for (const records of sliceByNumber(adRecords, 200)) {
+      await deleteByField(
+        "ad_atoms",
+        "facebook",
         "id",
-        "name",
-        "account_id",
-        "set_id",
-        "impressions",
-        "spend",
-        "reach",
-        "clicks",
-        "conversions",
-        "return",
-        "date",
-        "datetime",
-        "ctr",
-        "cpc",
-        "cpm",
-        "cpp",
-        "cpa",
-      ],
-      adRecords
-    );
+        records.map(({ id }) => id)
+      );
+      await insertRecords(
+        "ad_atoms",
+        "facebook",
+        [
+          "id",
+          "name",
+          "account_id",
+          "set_id",
+          "impressions",
+          "spend",
+          "reach",
+          "clicks",
+          "conversions",
+          "return",
+          "date",
+          "datetime",
+          "ctr",
+          "cpc",
+          "cpm",
+          "cpp",
+          "cpa",
+        ],
+        records
+      );
+    }
   }
 };
 
@@ -360,6 +362,14 @@ const getAdReportRecords = async (
 
 const range = (start: number, end: number) =>
   [...Array(end + 1).keys()].slice(start);
+
+const sliceByNumber = <T>(array: T[], n: number): T[][] => {
+  const length = Math.ceil(array.length / n);
+
+  return new Array(length)
+    .fill(0)
+    .map((_, i) => array.slice(i * n, (i + 1) * n));
+};
 
 const main = async () => {
   await adReports();
