@@ -35,7 +35,7 @@ type AdSet = {
 };
 
 type AdAccount = {
-  data: { name: string; id: string; adsets: AdSet }[];
+  data: { name: string; id: string; adsets?: AdSet }[];
   paging: Paging;
 };
 
@@ -177,7 +177,7 @@ const getAdSetReportRecords = async (
   inspectDate: string
 ): Promise<AdSetReportRecord[] | never> => {
   const records: AdSetReportRecord[] = [];
-  let next = `https://graph.facebook.com/v13.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
+  let next = `https://graph.facebook.com/v14.0/${FACEBOOK_BUSINESS_ACCOUNT_ID}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
   while (next) {
     const res = await fetch(next).then((res) => {
       if (!res.ok) {
@@ -199,7 +199,7 @@ const getAdSetReportRecords = async (
       "owned_ad_accounts" in res ? res.owned_ad_accounts.data : res.data;
 
     adAccount.forEach(({ id: accountId, name: accountName, adsets }) => {
-      adsets.data.forEach(({ id: setId, name: setName, insights }) => {
+      adsets?.data.forEach(({ id: setId, name: setName, insights }) => {
         insights?.data.forEach(
           ({
             impressions,
