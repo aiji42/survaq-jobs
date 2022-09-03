@@ -4,6 +4,7 @@ import {
   deleteByField,
 } from "./bigquery-client";
 import { createClient as createShopifyClient } from "./shopify";
+import { getProductOnMicroCMS } from "./microCMS";
 
 const sleep = (timeout: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, timeout));
@@ -52,21 +53,35 @@ type ProductNode = {
   updated_at: string;
 };
 
+type Product = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  productGroupId: string | null;
+  productGroupName: string | null;
+};
+
 export const products = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestUpdatedAt("products")}'`;
   console.log("Graphql query: ", query);
   let hasNext = true;
   let cursor: null | string = null;
-  let products: ProductNode[] = [];
+  let products: Product[] = [];
   while (hasNext) {
     const data: { products: WithPageInfo<EdgesNode<ProductNode>> } =
       await shopify.graphql(productListQuery(query, cursor));
     hasNext = data.products.pageInfo.hasNextPage;
 
-    products = data.products.edges.reduce((res, { node, cursor: c }) => {
-      cursor = c;
-      return [...res, node];
-    }, products);
+    for (let edge of data.products.edges) {
+      cursor = edge.cursor;
+      const { productGroupId, productGroupName } = await getProductOnMicroCMS(
+        edge.node.id
+      );
+      products.push({ ...edge.node, productGroupId, productGroupName });
+    }
+
     if (hasNext) await sleep(1000);
   }
 
@@ -77,7 +92,15 @@ export const products = async (): Promise<void> => {
     await insertRecords(
       "products",
       "shopify",
-      ["id", "title", "status", "created_at", "updated_at"],
+      [
+        "id",
+        "title",
+        "status",
+        "created_at",
+        "updated_at",
+        "productGroupId",
+        "productGroupName",
+      ],
       products
     );
   }

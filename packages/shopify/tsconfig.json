@@ -2,6 +2,7 @@
   "extends": "@tsconfig/node18/tsconfig.json",
   "include": ["index.ts"],
   "compilerOptions": {
-    "lib": ["es2022", "dom"]
+    "lib": ["es2022", "dom"],
+    "noUncheckedIndexedAccess": true
   }
 }

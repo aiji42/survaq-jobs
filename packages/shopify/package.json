@@ -19,6 +19,7 @@
     "@google-cloud/bigquery": "^6.0.0",
     "dayjs": "^1.11.3",
     "dotenv": "^16.0.1",
+    "microcms-js-sdk": "^2.2.1",
     "shopify-api-node": "^3.9.1",
     "sqlstring": "^2.3.3"
   }
