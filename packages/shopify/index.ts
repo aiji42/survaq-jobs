@@ -540,13 +540,19 @@ export const smartShoppingPerformance = async () => {
     }, []);
   const dates = [...new Set(rows.map(({ date }) => date))];
 
-  await deleteByField("performances", "merchant_center", "date", dates);
-  await insertRecords(
-    "performances",
-    "merchant_center",
-    ["date", "merchantCenterId", "name", "currencyCode", "cost"],
-    rows
-  );
+  if (dates.length > 0) {
+    console.log("delete merchant_center.performances date: ", dates);
+    await deleteByField("performances", "merchant_center", "date", dates);
+  }
+  if (rows.length > 0) {
+    console.log("insert merchant_center.performances", rows.length, "records");
+    await insertRecords(
+      "performances",
+      "merchant_center",
+      ["date", "merchantCenterId", "name", "currencyCode", "cost"],
+      rows
+    );
+  }
 
   await Promise.all(files.map((f) => f.delete()));
 };
