@@ -5,6 +5,8 @@ import {
 } from "./bigquery-client";
 import { createClient as createShopifyClient } from "./shopify";
 import { getProductOnMicroCMS } from "./microCMS";
+import { storage } from "./cloud-storage";
+import { parse } from "csv-parse/lib/sync";
 
 const sleep = (timeout: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, timeout));
@@ -510,6 +512,45 @@ export const ordersAndLineItems = async (): Promise<void> => {
   }
 };
 
+export const smartShoppingPerformance = async () => {
+  const bucket = storage.bucket("smart-shopping-performance-csv");
+  const [files] = await bucket.getFiles();
+  const rows = (
+    await Promise.all(
+      files.map((file) =>
+        file.download().then(([bff]) => parse(bff.toString(), { from_line: 4 }))
+      )
+    )
+  )
+    .flat()
+    .reduce<
+      {
+        date: string;
+        merchantCenterId: string;
+        name: string;
+        currencyCode: string;
+        cost: number;
+      }[]
+    >((res, [date, merchantCenterId, name, currencyCode, cost]) => {
+      if (merchantCenterId === " --") return res;
+      return [
+        ...res,
+        { date, merchantCenterId, name, currencyCode, cost: Number(cost) },
+      ];
+    }, []);
+  const dates = [...new Set(rows.map(({ date }) => date))];
+
+  await deleteByField("performances", "merchant_center", "date", dates);
+  await insertRecords(
+    "performances",
+    "merchant_center",
+    ["date", "merchantCenterId", "name", "currencyCode", "cost"],
+    rows
+  );
+
+  await Promise.all(files.map((f) => f.delete()));
+};
+
 const decode = (src: string | null | undefined): string | null | undefined => {
   if (typeof src !== "string") return src;
   try {
@@ -531,6 +572,7 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   await sleep(10000);
   await ordersAndLineItems();
+  await smartShoppingPerformance();
 };
 main().catch((e) => {
   console.log(e);
