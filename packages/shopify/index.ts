@@ -6,7 +6,7 @@ import {
 import { createClient as createShopifyClient } from "./shopify";
 import { getProductOnMicroCMS } from "./microCMS";
 import { storage } from "./cloud-storage";
-import { parse } from "csv-parse/lib/sync";
+import { parse } from "csv-parse/sync";
 
 const sleep = (timeout: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, timeout));
