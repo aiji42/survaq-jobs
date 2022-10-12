@@ -380,6 +380,15 @@ type OrderRecord = Omit<
   utm_term: string | null;
 };
 
+type CustomVisit = {
+  source: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+};
+
 export const ordersAndLineItems = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestUpdatedAt("orders")}'`;
   console.log("Graphql query: ", query);
@@ -394,6 +403,43 @@ export const ordersAndLineItems = async (): Promise<void> => {
       await shopify.graphql(orderListQuery(query, cursor));
 
     hasNext = data.orders.pageInfo.hasNextPage;
+
+    const customVisit: CustomVisit = {
+      source: null,
+      utm_source: null,
+      utm_medium: null,
+      utm_campaign: null,
+      utm_content: null,
+      utm_term: null,
+    };
+
+    lineItems = [
+      ...lineItems,
+      ...data.orders.edges.flatMap(({ node }) => {
+        return node.lineItems.edges.map(({ node: item }) => {
+          item.customAttributes.forEach(({ key, value }) => {
+            if (!value) return;
+            if (key === "source") customVisit.source = value;
+            if (key === "utm_source") customVisit.utm_source = value;
+            if (key === "utm_medium") customVisit.utm_medium = value;
+            if (key === "utm_campaign") customVisit.utm_campaign = value;
+            if (key === "utm_content") customVisit.utm_content = value;
+            if (key === "utm_term") customVisit.utm_term = value;
+          });
+          return {
+            ...item,
+            order_id: node.id,
+            product_id: item.product.id,
+            variant_id: item.variant?.id ?? null,
+            original_total_price: Number(
+              item.originalTotalSet.shopMoney.amount
+            ),
+            delivery_schedule: null,
+            skus: null,
+          };
+        });
+      }),
+    ];
 
     orders = [
       ...orders,
@@ -411,33 +457,23 @@ export const ordersAndLineItems = async (): Promise<void> => {
           source:
             (visit?.source === "an unknown source"
               ? utmSource
-              : visit?.source) ?? null,
+              : visit?.source) ??
+            customVisit.source ??
+            null,
           source_type: visit?.sourceType ?? null,
-          utm_source: utmSource ?? null,
-          utm_medium: decode(visit?.utmParameters?.medium) ?? null,
-          utm_campaign: decode(visit?.utmParameters?.campaign) ?? null,
-          utm_content: decode(visit?.utmParameters?.content) ?? null,
-          utm_term: decode(visit?.utmParameters?.term) ?? null,
+          utm_source: utmSource ?? customVisit.utm_source,
+          utm_medium:
+            decode(visit?.utmParameters?.medium) ??
+            decode(customVisit.utm_medium),
+          utm_campaign:
+            decode(visit?.utmParameters?.campaign) ??
+            decode(customVisit.utm_campaign),
+          utm_content:
+            decode(visit?.utmParameters?.content) ??
+            decode(customVisit.utm_content),
+          utm_term:
+            decode(visit?.utmParameters?.term) ?? decode(customVisit.utm_term),
         };
-      }),
-    ];
-
-    lineItems = [
-      ...lineItems,
-      ...data.orders.edges.flatMap(({ node }) => {
-        return node.lineItems.edges.map(({ node: item }) => {
-          return {
-            ...item,
-            order_id: node.id,
-            product_id: item.product.id,
-            variant_id: item.variant?.id ?? null,
-            original_total_price: Number(
-              item.originalTotalSet.shopMoney.amount
-            ),
-            delivery_schedule: null,
-            skus: null,
-          };
-        });
       }),
     ];
 
@@ -557,10 +593,10 @@ export const smartShoppingPerformance = async () => {
   await Promise.all(files.map((f) => f.delete()));
 };
 
-const decode = (src: string | null | undefined): string | null | undefined => {
+const decode = <T extends string | null | undefined>(src: T): T => {
   if (typeof src !== "string") return src;
   try {
-    return decodeURI(src);
+    return decodeURI(src) as T;
   } catch (_) {
     return src;
   }
