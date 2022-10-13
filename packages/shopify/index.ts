@@ -419,12 +419,12 @@ export const ordersAndLineItems = async (): Promise<void> => {
         return node.lineItems.edges.map(({ node: item }) => {
           item.customAttributes.forEach(({ key, value }) => {
             if (!value) return;
-            if (key === "source") customVisit.source = value;
-            if (key === "utm_source") customVisit.utm_source = value;
-            if (key === "utm_medium") customVisit.utm_medium = value;
-            if (key === "utm_campaign") customVisit.utm_campaign = value;
-            if (key === "utm_content") customVisit.utm_content = value;
-            if (key === "utm_term") customVisit.utm_term = value;
+            if (key === "_source") customVisit.source = value;
+            if (key === "_utm_source") customVisit.utm_source = value;
+            if (key === "_utm_medium") customVisit.utm_medium = value;
+            if (key === "_utm_campaign") customVisit.utm_campaign = value;
+            if (key === "_utm_content") customVisit.utm_content = value;
+            if (key === "_utm_term") customVisit.utm_term = value;
           });
           return {
             ...item,
