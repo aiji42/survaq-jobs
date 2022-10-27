@@ -15,6 +15,7 @@ const {
   API_SECRET_KEY = "",
   API_ACCESS_KEY = "",
   AD_ACCOUNT_ID = "",
+  REPORT_DAYS = "7",
 } = process.env;
 const REPORT_SIZE = 50;
 
@@ -121,7 +122,7 @@ const getColumns = (records: Record<string, unknown>[]) => {
 };
 
 const main = async () => {
-  const startDate = dayjs().subtract(7, "day");
+  const startDate = dayjs().subtract(Number(REPORT_DAYS), "day");
   const endDate = dayjs();
 
   for (let date = startDate; date <= endDate; date = date.add(1, "day")) {
