@@ -404,19 +404,20 @@ export const ordersAndLineItems = async (): Promise<void> => {
 
     hasNext = data.orders.pageInfo.hasNextPage;
 
-    const customVisit: CustomVisit = {
-      source: null,
-      utm_source: null,
-      utm_medium: null,
-      utm_campaign: null,
-      utm_content: null,
-      utm_term: null,
-    };
+    const customVisitByOrder: Record<string, CustomVisit> = {};
 
     lineItems = [
       ...lineItems,
       ...data.orders.edges.flatMap(({ node }) => {
         return node.lineItems.edges.map(({ node: item }) => {
+          const customVisit: CustomVisit = {
+            source: null,
+            utm_source: null,
+            utm_medium: null,
+            utm_campaign: null,
+            utm_content: null,
+            utm_term: null,
+          };
           item.customAttributes.forEach(({ key, value }) => {
             if (!value) return;
             if (key === "_source") customVisit.source = value;
@@ -426,6 +427,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             if (key === "_utm_content") customVisit.utm_content = value;
             if (key === "_utm_term") customVisit.utm_term = value;
           });
+          customVisitByOrder[node.id] = customVisit;
           return {
             ...item,
             order_id: node.id,
@@ -458,21 +460,27 @@ export const ordersAndLineItems = async (): Promise<void> => {
             (visit?.source === "an unknown source"
               ? utmSource
               : visit?.source) ??
-            customVisit.source ??
+            customVisitByOrder[node.id]?.source ??
             null,
           source_type: visit?.sourceType ?? null,
-          utm_source: utmSource ?? customVisit.utm_source,
+          utm_source:
+            utmSource ?? customVisitByOrder[node.id]?.utm_source ?? null,
           utm_medium:
             decode(visit?.utmParameters?.medium) ??
-            decode(customVisit.utm_medium),
+            decode(customVisitByOrder[node.id]?.utm_medium) ??
+            null,
           utm_campaign:
             decode(visit?.utmParameters?.campaign) ??
-            decode(customVisit.utm_campaign),
+            decode(customVisitByOrder[node.id]?.utm_campaign) ??
+            null,
           utm_content:
             decode(visit?.utmParameters?.content) ??
-            decode(customVisit.utm_content),
+            decode(customVisitByOrder[node.id]?.utm_content) ??
+            null,
           utm_term:
-            decode(visit?.utmParameters?.term) ?? decode(customVisit.utm_term),
+            decode(visit?.utmParameters?.term) ??
+            decode(customVisitByOrder[node.id]?.utm_term) ??
+            null,
         };
       }),
     ];
