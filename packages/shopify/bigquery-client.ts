@@ -48,14 +48,32 @@ export const getLatestUpdatedAt = async (
     query: `select updated_at from ${dataset}.${table}
             order by updated_at desc limit 1;`,
   });
-  if (res.length < 1) return "2000-01-01T00:00:00.000T";
+  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
 
   const [
     {
       updated_at: { value: latest },
     },
   ] = res;
-  return latest.replace(/\.000Z$/, ".999Z");
+  return latest.replace(/\.\d{3}Z$/, ".999Z");
+};
+
+export const getLatestSyncedAt = async (
+  table: string,
+  dataset = "shopify"
+): Promise<string> => {
+  const [res] = await client.query({
+    query: `select syncedAt from ${dataset}.${table}
+            order by syncedAt desc limit 1;`,
+  });
+  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
+
+  const [
+    {
+      syncedAt: { value: syncedAt },
+    },
+  ] = res;
+  return syncedAt.replace(/\.\d{3}Z$/, ".999Z");
 };
 
 export const deleteByField = async (

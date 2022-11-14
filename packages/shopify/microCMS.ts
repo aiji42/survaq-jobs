@@ -26,3 +26,18 @@ export const getProductOnMicroCMS = async (id: string) => {
     productGroupName: product?.productName ?? null,
   };
 };
+
+export const getProductsOnMicroCMSByUpdatedAt = async (at: string) => {
+  const { contents } = await cmsClient.getList<ProductOnMicroCMS>({
+    endpoint: "products",
+    queries: {
+      filters: `updatedAt[greater_than]${at}`,
+    },
+  });
+
+  return contents.map(({ productIds }) => {
+    return {
+      productIds: productIds.split(","),
+    };
+  });
+};

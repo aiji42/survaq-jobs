@@ -2,9 +2,13 @@ import {
   getLatestUpdatedAt,
   insertRecords,
   deleteByField,
+  getLatestSyncedAt,
 } from "./bigquery-client";
 import { createClient as createShopifyClient } from "./shopify";
-import { getProductOnMicroCMS } from "./microCMS";
+import {
+  getProductOnMicroCMS,
+  getProductsOnMicroCMSByUpdatedAt,
+} from "./microCMS";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 
@@ -63,10 +67,30 @@ type Product = {
   updated_at: string;
   productGroupId: string | null;
   productGroupName: string | null;
+  syncedAt: string;
 };
 
 export const products = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestUpdatedAt("products")}'`;
+  const lastSyncedAt = await getLatestSyncedAt("products");
+  const productsFromCMS = await getProductsOnMicroCMSByUpdatedAt(lastSyncedAt);
+  const productIds = [
+    ...new Set(
+      productsFromCMS.reduce<string[]>((res, { productIds }) => {
+        return [
+          ...res,
+          ...productIds.map((id) => `gid://shopify/Product/${id}`),
+        ];
+      }, [])
+    ),
+  ];
+  const productIdsQuery =
+    productIds.length > 0
+      ? `(${productIds.map((id) => `id:'${id}'`).join(" OR ")})`
+      : "";
+
+  const query = `updated_at:>'${lastSyncedAt}'${
+    productIdsQuery ? ` OR ${productIdsQuery}` : ""
+  }`;
   console.log("Graphql query: ", query);
   let hasNext = true;
   let cursor: null | string = null;
@@ -81,7 +105,12 @@ export const products = async (): Promise<void> => {
       const { productGroupId, productGroupName } = await getProductOnMicroCMS(
         edge.node.id
       );
-      products.push({ ...edge.node, productGroupId, productGroupName });
+      products.push({
+        ...edge.node,
+        productGroupId,
+        productGroupName,
+        syncedAt: new Date().toISOString(),
+      });
     }
 
     if (hasNext) await sleep(1000);
@@ -102,6 +131,7 @@ export const products = async (): Promise<void> => {
         "updated_at",
         "productGroupId",
         "productGroupName",
+        "syncedAt",
       ],
       products
     );
@@ -620,9 +650,9 @@ const sliceByNumber = <T>(array: T[], n: number): T[][] => {
 
 const main = async () => {
   await Promise.all([products(), variants()]);
-  await sleep(10000);
-  await ordersAndLineItems();
-  await smartShoppingPerformance();
+  // await sleep(10000);
+  // await ordersAndLineItems();
+  // await smartShoppingPerformance();
 };
 main().catch((e) => {
   console.log(e);
