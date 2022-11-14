@@ -96,6 +96,7 @@ export const products = async (): Promise<void> => {
   let cursor: null | string = null;
   let products: Product[] = [];
   while (hasNext) {
+    const syncedAt = new Date().toISOString();
     const data: { products: WithPageInfo<EdgesNode<ProductNode>> } =
       await shopify.graphql(productListQuery(query, cursor));
     hasNext = data.products.pageInfo.hasNextPage;
@@ -109,7 +110,7 @@ export const products = async (): Promise<void> => {
         ...edge.node,
         productGroupId,
         productGroupName,
-        syncedAt: new Date().toISOString(),
+        syncedAt,
       });
     }
 
