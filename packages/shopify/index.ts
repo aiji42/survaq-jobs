@@ -651,9 +651,9 @@ const sliceByNumber = <T>(array: T[], n: number): T[][] => {
 
 const main = async () => {
   await Promise.all([products(), variants()]);
-  // await sleep(10000);
-  // await ordersAndLineItems();
-  // await smartShoppingPerformance();
+  await sleep(10000);
+  await ordersAndLineItems();
+  await smartShoppingPerformance();
 };
 main().catch((e) => {
   console.log(e);
