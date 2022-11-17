@@ -71,22 +71,18 @@ type Product = {
 };
 
 export const products = async (): Promise<void> => {
+  const currentSyncedAt = new Date().toISOString();
   const lastSyncedAt = await getLatestSyncedAt("products");
   const productsFromCMS = await getProductsOnMicroCMSByUpdatedAt(lastSyncedAt);
   const productIds = [
     ...new Set(
       productsFromCMS.reduce<string[]>((res, { productIds }) => {
-        return [
-          ...res,
-          ...productIds.map((id) => `gid://shopify/Product/${id}`),
-        ];
+        return [...res, ...productIds.map((id) => `shopify/Product/${id}`)];
       }, [])
     ),
   ];
   const productIdsQuery =
-    productIds.length > 0
-      ? `(${productIds.map((id) => `id:'${id}'`).join(" OR ")})`
-      : "";
+    productIds.length > 0 ? `(${productIds.join(" OR ")})` : "";
 
   const query = `updated_at:>'${lastSyncedAt}'${
     productIdsQuery ? ` OR ${productIdsQuery}` : ""
@@ -96,7 +92,6 @@ export const products = async (): Promise<void> => {
   let cursor: null | string = null;
   let products: Product[] = [];
   while (hasNext) {
-    const syncedAt = new Date().toISOString();
     const data: { products: WithPageInfo<EdgesNode<ProductNode>> } =
       await shopify.graphql(productListQuery(query, cursor));
     hasNext = data.products.pageInfo.hasNextPage;
@@ -110,7 +105,7 @@ export const products = async (): Promise<void> => {
         ...edge.node,
         productGroupId,
         productGroupName,
-        syncedAt,
+        syncedAt: currentSyncedAt,
       });
     }
 
