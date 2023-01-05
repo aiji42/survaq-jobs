@@ -109,7 +109,10 @@ export const products = async (): Promise<void> => {
       });
     }
 
-    if (hasNext) await sleep(1000);
+    if (hasNext) {
+      console.log("has next cursor: ", cursor);
+      await sleep(1000);
+    }
   }
 
   console.log("products records:", products.length);
@@ -217,7 +220,11 @@ export const variants = async (): Promise<void> => {
       },
       variants
     );
-    if (hasNext) await sleep(1000);
+
+    if (hasNext) {
+      console.log("has next cursor: ", cursor);
+      await sleep(1000);
+    }
   }
 
   console.log("variants records:", variants.length);
@@ -511,7 +518,10 @@ export const ordersAndLineItems = async (): Promise<void> => {
       }),
     ];
 
-    if (hasNext) await sleep(5000);
+    if (hasNext) {
+      console.log("has next cursor: ", cursor);
+      await sleep(5000);
+    }
   }
 
   for (const items of sliceByNumber(orders, 200)) {
@@ -645,9 +655,12 @@ const sliceByNumber = <T>(array: T[], n: number): T[][] => {
 };
 
 const main = async () => {
+  console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
   await sleep(10000);
+  console.log("Sync orders and lineItems");
   await ordersAndLineItems();
+  console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
 };
 main().catch((e) => {
