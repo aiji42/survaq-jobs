@@ -2,5 +2,13 @@
   "name": "facebook-budgets",
   "version": "1.0.0",
   "main": "index.js",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@tsconfig/node18": "^1.0.1",
+    "@types/node": "^18.11.18",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^6.0.3"
+  }
 }
