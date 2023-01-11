@@ -5,15 +5,10 @@
   "author": "aiji42",
   "license": "MIT",
   "private": true,
-  "scripts": {
-    "build:line-ads": "yarn workspace line-ads run build",
-    "build:facebook-ads": "yarn workspace facebook-ads run build",
-    "build:shopify": "yarn workspace shopify run build"
-  },
   "workspaces": [
     "packages/*"
   ],
   "devDependencies": {
-    "prettier": "^2.6.2"
+    "prettier": "^2.8.2"
   }
 }

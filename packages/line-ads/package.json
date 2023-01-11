@@ -4,23 +4,23 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "build": "node build.js",
-    "dev": "node --require esbuild-register index.ts"
+    "start": "tsx index.ts",
+    "dev": "tsx index.ts",
+    "typeckeck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google-cloud/bigquery": "^5.12.0",
-    "dayjs": "^1.11.2",
-    "dotenv": "^16.0.1",
-    "jsonwebtoken": "^8.5.1",
+    "@google-cloud/bigquery": "^6.0.3",
+    "dayjs": "^1.11.7",
+    "dotenv": "^16.0.3",
+    "jsonwebtoken": "^9.0.0",
     "sqlstring": "^2.3.3"
   },
   "devDependencies": {
-    "@tsconfig/node18": "^1.0.0",
-    "@types/jsonwebtoken": "^8.5.8",
-    "@types/node": "^17.0.35",
+    "@tsconfig/node18": "^1.0.1",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^18.11.18",
     "@types/sqlstring": "^2.3.0",
-    "esbuild": "^0.14.41",
-    "esbuild-register": "^3.3.2",
-    "typescript": "^4.7.2"
+    "tsx": "^3.12.2",
+    "typescript": "^4.9.4"
   }
 }

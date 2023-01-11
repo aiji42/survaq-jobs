@@ -2,7 +2,7 @@ import { createClient } from "microcms-js-sdk";
 
 const cmsClient = createClient({
   serviceDomain: "survaq-shopify",
-  apiKey: process.env.MICROCMS_API_TOKEN ?? "",
+  apiKey: process.env["MICROCMS_API_TOKEN"] ?? "",
 });
 
 type ProductOnMicroCMS = {
