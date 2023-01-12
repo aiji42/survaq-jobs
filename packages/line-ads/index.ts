@@ -133,7 +133,7 @@ const main = async () => {
 
     if (records.length > 0) {
       console.log("delete records date=", d);
-      await deleteByField("ad_reports", "line", "date", [d]);
+      await deleteByField("ad_reports", "line", "date", d);
       console.log("insert records");
       await insertRecords("ad_reports", "line", getColumns(records), records);
     }
