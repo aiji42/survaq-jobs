@@ -56,7 +56,7 @@ export const deleteByField = async (
         )
       : sql.format(
           `
-    DELETE FROM ${dataset}.${table} WHEE ${field} = ?;
+    DELETE FROM ${dataset}.${table} WHERE ${field} = ?;
     `,
           [values]
         ),
