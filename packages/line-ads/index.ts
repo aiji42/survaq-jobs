@@ -5,7 +5,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import jwt from "jsonwebtoken";
 import { Report } from "./report";
-import { deleteByDate, insertRecords } from "./bigquery-client";
+import { deleteByField, insertRecords } from "@survaq-jobs/libraries";
 
 config();
 dayjs.extend(utc);
@@ -133,7 +133,7 @@ const main = async () => {
 
     if (records.length > 0) {
       console.log("delete records date=", d);
-      await deleteByDate("ad_reports", "line", d);
+      await deleteByField("ad_reports", "line", "date", [d]);
       console.log("insert records");
       await insertRecords("ad_reports", "line", getColumns(records), records);
     }

@@ -40,54 +40,40 @@ const makeInsertQuery = (
   );
 };
 
-export const getLatestUpdatedAt = async (
-  table: string,
-  dataset = "shopify"
-): Promise<string> => {
-  const [res] = await client.query({
-    query: `select updated_at from ${dataset}.${table}
-            order by updated_at desc limit 1;`,
-  });
-  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
-
-  const [
-    {
-      updated_at: { value: latest },
-    },
-  ] = res;
-  return latest.replace(/\.\d{3}Z$/, ".999Z");
-};
-
-export const getLatestSyncedAt = async (
-  table: string,
-  dataset = "shopify"
-): Promise<string> => {
-  const [res] = await client.query({
-    query: `select syncedAt from ${dataset}.${table}
-            order by syncedAt desc limit 1;`,
-  });
-  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
-
-  const [
-    {
-      syncedAt: { value: syncedAt },
-    },
-  ] = res;
-  return syncedAt.replace(/\.\d{3}Z$/, ".999Z");
-};
-
 export const deleteByField = async (
   table: string,
   dataset: string,
   field: string,
-  values: (string | number)[]
+  values: (string | number)[] | string | number
 ) => {
   await client.query({
-    query: sql.format(
-      `
+    query: Array.isArray(values)
+      ? sql.format(
+          `
     DELETE FROM ${dataset}.${table} WHERE ${field} IN (?);
     `,
-      [values]
-    ),
+          [values]
+        )
+      : sql.format(
+          `
+    DELETE FROM ${dataset}.${table} WHEE ${field} = ?;
+    `,
+          [values]
+        ),
   });
+};
+
+export const getLatestTimeAt = async (
+  table: string,
+  dataset: string,
+  column: string
+): Promise<string> => {
+  const [res] = await client.query({
+    query: `SELECT ${column} FROM ${dataset}.${table}
+            ORDER BY ${column} DESC LIMIT 1;`,
+  });
+  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
+
+  const latest = res[0][column].value;
+  return latest.replace(/\.\d{3}Z$/, ".999Z");
 };

@@ -1,9 +1,8 @@
 import {
-  getLatestUpdatedAt,
   insertRecords,
   deleteByField,
-  getLatestSyncedAt,
-} from "./bigquery-client";
+  getLatestTimeAt,
+} from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import {
   getProductOnMicroCMS,
@@ -72,7 +71,7 @@ type Product = {
 
 export const products = async (): Promise<void> => {
   const currentSyncedAt = new Date().toISOString();
-  const lastSyncedAt = await getLatestSyncedAt("products");
+  const lastSyncedAt = await getLatestTimeAt("products", "shopify", "syncedAt");
   const productsFromCMS = await getProductsOnMicroCMSByUpdatedAt(lastSyncedAt);
   const productIds = [
     ...new Set(
@@ -193,7 +192,11 @@ type VariantRecord = {
 };
 
 export const variants = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestUpdatedAt("variants")}'`;
+  const query = `updated_at:>'${await getLatestTimeAt(
+    "variants",
+    "shopify",
+    "updated_at"
+  )}'`;
   console.log("Graphql query: ", query);
   let hasNext = true;
   let cursor: null | string = null;
@@ -423,7 +426,11 @@ type CustomVisit = {
 };
 
 export const ordersAndLineItems = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestUpdatedAt("orders")}'`;
+  const query = `updated_at:>'${await getLatestTimeAt(
+    "orders",
+    "shopify",
+    "updated_at"
+  )}'`;
   console.log("Graphql query: ", query);
 
   let hasNext = true;

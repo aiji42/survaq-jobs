@@ -9,6 +9,7 @@ WORKDIR /app
 
 COPY package.json .
 COPY yarn.lock .
+COPY ./packages/libraries/ packages/libraries/
 COPY ./packages/$BUILD_CONTEXT/ packages/$BUILD_CONTEXT/
 
 RUN yarn install --frozen-lockfile

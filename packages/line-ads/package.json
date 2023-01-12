@@ -9,17 +9,15 @@
     "typeckeck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google-cloud/bigquery": "^6.0.3",
+    "@survaq-jobs/libraries": "*",
     "dayjs": "^1.11.7",
     "dotenv": "^16.0.3",
-    "jsonwebtoken": "^9.0.0",
-    "sqlstring": "^2.3.3"
+    "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {
     "@tsconfig/node18": "^1.0.1",
     "@types/jsonwebtoken": "^9.0.0",
     "@types/node": "^18.11.18",
-    "@types/sqlstring": "^2.3.0",
     "tsx": "^3.12.2",
     "typescript": "^4.9.4"
   }

@@ -1,5 +1,7 @@
 import dayjs from "dayjs";
-import { insertRecords, deleteByField } from "./bigquery-client";
+import { insertRecords, deleteByField } from "@survaq-jobs/libraries";
+import { config } from "dotenv";
+config();
 
 type Paging = {
   cursors: {
