@@ -2,6 +2,8 @@ import {
   insertRecords,
   deleteByField,
   getLatestTimeAt,
+  sliceByNumber,
+  sleep,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import {
@@ -10,10 +12,6 @@ import {
 } from "./microCMS";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
-
-const sleep = (timeout: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, timeout));
-};
 
 type EdgesNode<T> = {
   edges: {
@@ -110,7 +108,7 @@ export const products = async (): Promise<void> => {
 
     if (hasNext) {
       console.log("has next cursor: ", cursor);
-      await sleep(1000);
+      await sleep(1);
     }
   }
 
@@ -226,7 +224,7 @@ export const variants = async (): Promise<void> => {
 
     if (hasNext) {
       console.log("has next cursor: ", cursor);
-      await sleep(1000);
+      await sleep(1);
     }
   }
 
@@ -527,7 +525,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
 
     if (hasNext) {
       console.log("has next cursor: ", cursor);
-      await sleep(5000);
+      await sleep(5);
     }
   }
 
@@ -653,18 +651,10 @@ const decode = <T extends string | null | undefined>(src: T): T => {
   }
 };
 
-const sliceByNumber = <T>(array: T[], n: number): T[][] => {
-  const length = Math.ceil(array.length / n);
-
-  return new Array(length)
-    .fill(0)
-    .map((_, i) => array.slice(i * n, (i + 1) * n));
-};
-
 const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
-  await sleep(10000);
+  await sleep(10);
   console.log("Sync orders and lineItems");
   await ordersAndLineItems();
   console.log("Sync smart shopping performance");

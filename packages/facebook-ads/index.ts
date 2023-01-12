@@ -1,5 +1,10 @@
 import dayjs from "dayjs";
-import { insertRecords, deleteByField } from "@survaq-jobs/libraries";
+import {
+  insertRecords,
+  deleteByField,
+  sliceByNumber,
+  range,
+} from "@survaq-jobs/libraries";
 import { config } from "dotenv";
 config();
 
@@ -371,17 +376,6 @@ const getAdReportRecords = async (
     });
   }
   return records;
-};
-
-const range = (start: number, end: number) =>
-  [...Array(end + 1).keys()].slice(start);
-
-const sliceByNumber = <T>(array: T[], n: number): T[][] => {
-  const length = Math.ceil(array.length / n);
-
-  return new Array(length)
-    .fill(0)
-    .map((_, i) => array.slice(i * n, (i + 1) * n));
 };
 
 const main = async () => {

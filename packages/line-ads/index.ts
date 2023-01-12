@@ -5,7 +5,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import jwt from "jsonwebtoken";
 import { Report } from "./report";
-import { deleteByField, insertRecords } from "@survaq-jobs/libraries";
+import { deleteByField, insertRecords, sleep } from "@survaq-jobs/libraries";
 
 config();
 dayjs.extend(utc);
@@ -18,10 +18,6 @@ const {
   REPORT_DAYS = "7",
 } = process.env;
 const REPORT_SIZE = 50;
-
-const sleep = (sec: number) => {
-  return new Promise((resolve) => setTimeout(resolve, sec * 1000));
-};
 
 const getReport = async (
   adaccountId: string,
