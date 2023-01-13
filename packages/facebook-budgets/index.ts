@@ -13,6 +13,14 @@ const main = async () => {
   const date = today.add(-1, "day");
   console.log("Reference date:", date.format("YYYY-MM-DD"));
 
+  const updated = await getRecords("budget_histories", "facebook", ["date"], {
+    date: today.format("YYYY-MM-DD"),
+  });
+  if (updated.length > 0) {
+    console.log("Skip since the budgets were already updated.");
+    return;
+  }
+
   const records = await getRecords<{
     account_id: string;
     account_name: string;
