@@ -17,13 +17,35 @@ export const client = new BigQuery(
       }
 );
 
-export const insertRecords = (
+export const getRecords = async <
+  T extends Record<string, unknown> = Record<string, any>
+>(
   table: string,
   dataset: string,
   columns: string[],
-  data: Record<string, string | number | boolean | null>[]
+  conditions: Record<string, string>
+): Promise<T[]> => {
+  const [res] = await client.query({
+    query: `SELECT ${columns.join(",")} FROM ${dataset}.${table}
+            WHERE ${Object.entries(conditions)
+              .map(([left, right]) => `${left} = '${right}'`)
+              .join(" AND ")};`,
+  });
+
+  return res;
+};
+
+export const insertRecords = <
+  T extends Record<string, string | number | boolean | null>
+>(
+  table: string,
+  dataset: string,
+  columns: Array<keyof T>,
+  data: T[]
 ): Promise<SimpleQueryRowsResponse> =>
-  client.query({ query: makeInsertQuery(table, dataset, columns, data) });
+  client.query({
+    query: makeInsertQuery(table, dataset, columns as string[], data),
+  });
 
 const makeInsertQuery = (
   table: string,
