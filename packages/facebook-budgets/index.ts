@@ -1,8 +1,8 @@
 import {
   getRecords,
+  getLatestTimeAt,
   insertRecords,
   sleep,
-  sliceByNumber,
 } from "@survaq-jobs/libraries";
 import dayjs from "dayjs";
 
@@ -11,15 +11,20 @@ const { FACEBOOK_GRAPH_API_TOKEN = "" } = process.env;
 const main = async () => {
   const today = dayjs();
   const date = today.add(-1, "day");
-  console.log("Reference date:", date.format("YYYY-MM-DD"));
 
-  const updated = await getRecords("budget_histories", "facebook", ["date"], {
-    date: today.format("YYYY-MM-DD"),
-  });
-  if (updated.length > 0) {
-    console.log("Skip since the budgets were already updated.");
+  const lastProcessedOn = await getLatestTimeAt(
+    "budget_histories",
+    "facebook",
+    "date"
+  );
+  if (today.diff(lastProcessedOn, "days") < 3) {
+    console.log(
+      "Skip process since  it has been less than 3 days since the last"
+    );
     return;
   }
+
+  console.log("Reference date:", date.format("YYYY-MM-DD"));
 
   const records = await getRecords<{
     account_id: string;
@@ -43,17 +48,7 @@ const main = async () => {
   );
   console.log("Find", records.length, "records");
 
-  const histories: {
-    account_id: string;
-    account_name: string;
-    set_id: string;
-    set_name: string;
-    date: string;
-    before_budget: number;
-    after_budget: number;
-    change_ratio: number;
-    roas: number;
-  }[] = [];
+  const processed = [];
   for (const record of records) {
     const res = await fetch(
       `https://graph.facebook.com/v14.0/${record.set_id}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
@@ -64,10 +59,24 @@ const main = async () => {
     const json: { name: string; daily_budget: string; id: string } =
       await res.json();
 
+    const updated = await getRecords("budget_histories", "facebook", ["date"], {
+      date: today.format("YYYY-MM-DD"),
+      set_id: record.set_id,
+    });
+    if (updated.length > 0) {
+      console.log(
+        "Skip since the budget was already updated:",
+        record.set_id,
+        record.set_name
+      );
+      await sleep(0.5);
+      continue;
+    }
+
     const roas = record.return_1week_sum / record.spend_1week_sum;
     const ratio = roas < 2 ? 0.8 : roas > 3 ? 1.2 : 1.0;
 
-    histories.push({
+    const history = {
       account_id: record.account_id,
       account_name: record.account_name,
       set_id: record.set_id,
@@ -77,13 +86,21 @@ const main = async () => {
       after_budget: Math.floor(Number(json.daily_budget) * ratio),
       change_ratio: ratio,
       roas,
-    });
+    };
 
-    await sleep(0.5);
-  }
+    // TODO: Budget update
 
-  for (const newRecords of sliceByNumber(histories, 200)) {
-    console.table(newRecords);
+    console.log(
+      "Update budget",
+      history.before_budget < history.after_budget
+        ? "↗️"
+        : history.before_budget > history.after_budget
+        ? "↘️"
+        : "➡️",
+      record.set_id,
+      record.set_name
+    );
+
     await insertRecords(
       "budget_histories",
       "facebook",
@@ -97,9 +114,15 @@ const main = async () => {
         "after_budget",
         "change_ratio",
       ],
-      newRecords
+      [history]
     );
+
+    processed.push(history);
+
+    await sleep(0.5);
   }
+
+  if (processed.length > 0) console.table(processed);
 };
 main().catch((e) => {
   console.error(e);
