@@ -50,7 +50,7 @@ const main = async () => {
 
   const processed = [];
   for (const record of records) {
-    const res = await fetch(
+    let res = await fetch(
       `https://graph.facebook.com/v14.0/${record.set_id}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
     );
     if (!res.ok) {
@@ -88,18 +88,25 @@ const main = async () => {
       roas,
     };
 
-    // TODO: Budget update
-
-    console.log(
-      "Update budget",
-      history.before_budget < history.after_budget
-        ? "↗️"
-        : history.before_budget > history.after_budget
-        ? "↘️"
-        : "➡️",
-      record.set_id,
-      record.set_name
-    );
+    if (history.after_budget !== history.before_budget) {
+      res = await fetch(
+        `https://graph.facebook.com/v14.0/${record.set_id}?daily_budget=${history.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
+        {
+          method: "POST",
+        }
+      );
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      console.log(
+        "Updated budget",
+        history.before_budget < history.after_budget ? "↗️" : "↘️",
+        record.set_id,
+        record.set_name
+      );
+    } else {
+      console.log("Keep budget", record.set_id, record.set_name);
+    }
 
     await insertRecords(
       "budget_histories",
