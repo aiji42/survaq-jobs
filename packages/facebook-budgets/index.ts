@@ -115,12 +115,12 @@ const main = async () => {
     };
 
     if (history.after_budget !== history.before_budget) {
-      // res = await fetch(
-      //   `https://graph.facebook.com/v14.0/${record.set_id}?daily_budget=${history.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
-      //   {
-      //     method: "POST",
-      //   }
-      // );
+      res = await fetch(
+        `https://graph.facebook.com/v14.0/${record.set_id}?daily_budget=${history.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
+        {
+          method: "POST",
+        }
+      );
       if (!res.ok) {
         throw new Error(await res.text());
       }
