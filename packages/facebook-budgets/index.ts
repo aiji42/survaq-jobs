@@ -3,6 +3,7 @@ import {
   getLatestTimeAt,
   insertRecords,
   sleep,
+  getActiveFacebookAdsBudgets,
 } from "@survaq-jobs/libraries";
 import dayjs from "dayjs";
 
@@ -24,32 +25,46 @@ const main = async () => {
     return;
   }
 
+  const activeFacebookAdsBudgetRecords = await getActiveFacebookAdsBudgets();
+
+  console.log("Find", activeFacebookAdsBudgetRecords.length, "records");
+
   console.log("Reference date:", date.format("YYYY-MM-DD"));
 
-  const records = await getRecords<{
-    account_id: string;
-    account_name: string;
-    set_id: string;
-    set_name: string;
-    return_1week_sum: number;
-    spend_1week_sum: number;
-  }>(
-    "calc_for_roas",
-    "facebook",
-    [
-      "account_id",
-      "account_name",
-      "set_id",
-      "set_name",
-      "return_1week_sum",
-      "spend_1week_sum",
-    ],
-    { date: date.format("YYYY-MM-DD") }
-  );
-  console.log("Find", records.length, "records");
-
   const processed = [];
-  for (const record of records) {
+  for (const activeFacebookAdsBudgetRecord of activeFacebookAdsBudgetRecords) {
+    const [record] = await getRecords<{
+      account_id: string;
+      account_name: string;
+      set_id: string;
+      set_name: string;
+      return_1week_sum: number;
+      spend_1week_sum: number;
+    }>(
+      "calc_for_roas",
+      "facebook",
+      [
+        "account_id",
+        "account_name",
+        "set_id",
+        "set_name",
+        "return_1week_sum",
+        "spend_1week_sum",
+      ],
+      {
+        date: date.format("YYYY-MM-DD"),
+        set_id: activeFacebookAdsBudgetRecord.setId,
+      }
+    );
+    if (!record) {
+      console.log(
+        "Skip since the budget was not found on BigQuery:",
+        activeFacebookAdsBudgetRecord.setId,
+        activeFacebookAdsBudgetRecord.setName
+      );
+      return;
+    }
+
     let res = await fetch(
       `https://graph.facebook.com/v14.0/${record.set_id}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
     );
@@ -74,7 +89,18 @@ const main = async () => {
     }
 
     const roas = record.return_1week_sum / record.spend_1week_sum;
-    const ratio = roas < 2 ? 0.8 : roas > 3 ? 1.2 : 1.0;
+    const { ratio } =
+      activeFacebookAdsBudgetRecord.strategy.find(({ beginRoas, endRoas }) => {
+        return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
+      }) ?? {};
+    if (!ratio) {
+      console.log(
+        "Skip since the strategy was not found:",
+        record.set_id,
+        record.set_name
+      );
+      return;
+    }
 
     const history = {
       account_id: record.account_id,
@@ -89,12 +115,12 @@ const main = async () => {
     };
 
     if (history.after_budget !== history.before_budget) {
-      res = await fetch(
-        `https://graph.facebook.com/v14.0/${record.set_id}?daily_budget=${history.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
-        {
-          method: "POST",
-        }
-      );
+      // res = await fetch(
+      //   `https://graph.facebook.com/v14.0/${record.set_id}?daily_budget=${history.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
+      //   {
+      //     method: "POST",
+      //   }
+      // );
       if (!res.ok) {
         throw new Error(await res.text());
       }
