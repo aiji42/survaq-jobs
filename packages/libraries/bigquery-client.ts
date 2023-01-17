@@ -23,12 +23,16 @@ export const getRecords = async <
   table: string,
   dataset: string,
   columns: string[],
-  conditions: Record<string, string>
+  conditions: Record<string, string | { value: string; operator: string }>
 ): Promise<T[]> => {
   const [res] = await client.query({
     query: `SELECT ${columns.join(",")} FROM ${dataset}.${table}
             WHERE ${Object.entries(conditions)
-              .map(([left, right]) => `${left} = '${right}'`)
+              .map(([left, right]) =>
+                typeof right === "string"
+                  ? `${left} = '${right}'`
+                  : `${left} ${right.operator} '${right.value}'`
+              )
               .join(" AND ")};`,
   });
 

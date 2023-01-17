@@ -15,6 +15,7 @@ type FacebookAdsBudgets = {
     endRoas: number | null;
     ratio: number | null;
   }>;
+  intervalDays: number;
 };
 
 type Collections = {
@@ -37,6 +38,7 @@ export const getActiveFacebookAdsBudgets = async (): Promise<
       "setName",
       "setId",
       "strategy",
+      "intervalDays",
     ],
     limit: 100,
   });
