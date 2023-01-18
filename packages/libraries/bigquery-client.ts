@@ -1,15 +1,16 @@
 import * as sql from "sqlstring";
-import { BigQuery, SimpleQueryRowsResponse } from "@google-cloud/bigquery";
+import { BigQuery } from "@google-cloud/bigquery";
 import { config } from "dotenv";
 config();
 
+const { BIGQUERY_CREDENTIALS, NODE_ENV, DRY_RUN } = process.env;
+
 const credentials = JSON.parse(
-  process.env["BIGQUERY_CREDENTIALS"] ??
-    '{"client_email":"","private_key":"","project_id":""}'
+  BIGQUERY_CREDENTIALS ?? '{"client_email":"","private_key":"","project_id":""}'
 ) as { client_email: string; private_key: string; project_id: "" };
 
 export const client = new BigQuery(
-  process.env["NODE_ENV"] === "production"
+  NODE_ENV === "production"
     ? {}
     : {
         credentials,
@@ -46,10 +47,20 @@ export const insertRecords = <
   dataset: string,
   columns: Array<keyof T>,
   data: T[]
-): Promise<SimpleQueryRowsResponse> =>
-  client.query({
+) => {
+  if (DRY_RUN) {
+    console.log("DRY RUN: insert records", dataset, table);
+    console.log("columns", columns);
+    if (Object.keys(data[0] ?? {}).length < 20) {
+      console.table(data.slice(0, 10));
+      if (data.length > 10) console.log("and more...");
+      return;
+    }
+  }
+  return client.query({
     query: makeInsertQuery(table, dataset, columns as string[], data),
   });
+};
 
 const makeInsertQuery = (
   table: string,
@@ -72,6 +83,11 @@ export const deleteByField = async (
   field: string,
   values: (string | number)[] | string | number
 ) => {
+  if (DRY_RUN) {
+    console.log("DRY RUN: delete record by", field, "from", dataset, table);
+    return;
+  }
+
   await client.query({
     query: Array.isArray(values)
       ? sql.format(

@@ -3,10 +3,10 @@ import {
   insertRecords,
   sleep,
   getActiveFacebookAdsBudgets,
+  updateDailyBudget,
+  fetchAdSetInfo,
 } from "@survaq-jobs/libraries";
 import dayjs from "dayjs";
-
-const { FACEBOOK_GRAPH_API_TOKEN = "" } = process.env;
 
 const main = async () => {
   const today = dayjs();
@@ -35,20 +35,6 @@ const main = async () => {
       );
       return;
     }
-
-    let res = await fetch(
-      `https://graph.facebook.com/v14.0/${plan.setId}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
-    );
-    if (!res.ok) {
-      console.error(
-        "Throw a error when requesting graph.facebook.com (getting ad set info)",
-        plan.setId,
-        plan.setName
-      );
-      throw new Error(await res.text());
-    }
-    const json: { name: string; daily_budget: string; id: string } =
-      await res.json();
 
     const updated = await getRecords("budget_histories", "facebook", ["date"], {
       date: {
@@ -81,34 +67,23 @@ const main = async () => {
       return;
     }
 
+    const { daily_budget: currentBudget } = await fetchAdSetInfo(plan.setId);
+
     const updatePlan = {
       account_id: plan.accountId,
       account_name: plan.accountName,
       set_id: plan.setId,
       set_name: plan.setName,
       date: today.format("YYYY-MM-DD"),
-      before_budget: Number(json.daily_budget),
-      after_budget: Math.floor(Number(json.daily_budget) * ratio),
+      before_budget: Number(currentBudget),
+      after_budget: Math.floor(Number(currentBudget) * ratio),
       change_ratio: ratio,
       roas,
     };
 
     if (updatePlan.after_budget !== updatePlan.before_budget) {
       console.log("Request update budget", plan.setId, plan.setName);
-      res = await fetch(
-        `https://graph.facebook.com/v14.0/${plan.setId}?daily_budget=${updatePlan.after_budget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
-        {
-          method: "POST",
-        }
-      );
-      if (!res.ok) {
-        console.error(
-          "Throw a error when requesting graph.facebook.com (updating budget)",
-          plan.setId,
-          plan.setName
-        );
-        throw new Error(await res.text());
-      }
+      await updateDailyBudget(plan.setId, updatePlan.after_budget);
       console.log(
         "Updated budget",
         updatePlan.before_budget < updatePlan.after_budget ? "↗️" : "↘️",

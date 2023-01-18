@@ -371,6 +371,7 @@ type LineItemRecord = Omit<
 
 type OrderNode = {
   id: string;
+  name: string;
   lineItems: EdgesNode<LineItemNode>;
   customerJourneySummary?: {
     firstVisit?: {
@@ -387,9 +388,18 @@ type OrderNode = {
       };
     };
   };
+  display_financial_status: string;
+  display_fulfillment_status: string;
+  closed: boolean;
   totalPriceSet: ShopMoney;
   subtotalPriceSet: ShopMoney;
   totalTaxSet: ShopMoney;
+  taxes_included: boolean;
+  subtotal_line_item_quantity: number;
+  closed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type OrderRecord = Omit<
@@ -639,7 +649,7 @@ export const smartShoppingPerformance = async () => {
     );
   }
 
-  await Promise.all(files.map((f) => f.delete()));
+  if (!process.env["DRY_RUN"]) await Promise.all(files.map((f) => f.delete()));
 };
 
 const decode = <T extends string | null | undefined>(src: T): T => {
