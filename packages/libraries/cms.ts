@@ -4,29 +4,37 @@ config();
 
 const { DIRECTUS_URL = "", DIRECTUS_TOKEN = "" } = process.env;
 
+export type FacebookAdsBudgetStrategy = Array<{
+  beginRoas: number | null;
+  endRoas: number | null;
+  ratio: number | null;
+}>;
+
 type FacebookAdsBudget = {
   active: boolean;
   accountId: string;
   accountName: string | null;
   setName: string | null;
   setId: string;
-  strategy: Array<{
-    beginRoas: number | null;
-    endRoas: number | null;
-    ratio: number | null;
-  }>;
+  strategy: FacebookAdsBudgetStrategy;
   intervalDays: number;
 };
 
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
 type RuleKey = "arpu_weekly" | "cpc_weekly";
 
+export type FacebookAdAlertsRule = {
+  key: RuleKey;
+  value: number;
+  operator: RuleOperator;
+}[];
+
 type FacebookAdAlerts = {
   active: boolean;
   title: string;
   channel: string;
   message: string;
-  rule: Array<{ key: RuleKey; value: number; operator: RuleOperator }>;
+  rule: FacebookAdAlertsRule;
   adSets: Array<{
     FacebookAdAlerts_id: string;
     FacebookAdSets_id: {
@@ -47,7 +55,9 @@ const directus = new Directus<Collections>(DIRECTUS_URL, {
   auth: { mode: "cookie", staticToken: DIRECTUS_TOKEN },
 });
 
-export const getActiveFacebookAdsBudgets = async () => {
+export const getActiveFacebookAdsBudgets = async (): Promise<
+  FacebookAdsBudget[]
+> => {
   const items = await directus.items("FacebookAdsBudget").readByQuery({
     filter: { active: true },
     fields: [
@@ -56,7 +66,7 @@ export const getActiveFacebookAdsBudgets = async () => {
       "active",
       "setName",
       "setId",
-      "strategy.*",
+      "strategy",
       "intervalDays",
     ],
     limit: 100,
@@ -74,7 +84,7 @@ export const getActiveFacebookAdAlerts = async () => {
       "active",
       "channel",
       "message",
-      "rule.*",
+      "rule",
       "adSets.FacebookAdSets_id.*",
     ],
     limit: 100,

@@ -5,6 +5,7 @@ import {
   getActiveFacebookAdsBudgets,
   updateDailyBudget,
   fetchAdSetInfo,
+  FacebookAdsBudgetStrategy,
 } from "@survaq-jobs/libraries";
 import dayjs from "dayjs";
 
@@ -55,9 +56,11 @@ const main = async () => {
 
     const roas = record.return_1week_sum / record.spend_1week_sum;
     const { ratio } =
-      plan.strategy.find(({ beginRoas, endRoas }) => {
-        return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
-      }) ?? {};
+      (plan.strategy as FacebookAdsBudgetStrategy).find(
+        ({ beginRoas, endRoas }) => {
+          return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
+        }
+      ) ?? {};
     if (!ratio) {
       console.log(
         "Skip since the strategy was not found:",

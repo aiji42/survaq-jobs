@@ -24,17 +24,42 @@ export const getRecords = async <
   table: string,
   dataset: string,
   columns: string[],
-  conditions: Record<string, string | { value: string; operator: string }>
+  conditions: Record<
+    string,
+    string | { value: string; operator: string } | string[]
+  >
 ): Promise<T[]> => {
+  const [queries, values] = Object.entries(conditions).reduce<
+    [Array<string>, Array<string | string[]>]
+  >(
+    (res, [left, right]) => {
+      const [queries, values] = res;
+      if (Array.isArray(right)) {
+        return [
+          [...queries, `${left} IN (?)`],
+          [...values, right],
+        ];
+      }
+      if (typeof right === "string") {
+        return [
+          [...queries, `${left} = ?`],
+          [...values, right],
+        ];
+      }
+      return [
+        [...queries, `${left} ${right.operator} ?`],
+        [...values, right.value],
+      ];
+    },
+    [[], []]
+  );
+
   const [res] = await client.query({
-    query: `SELECT ${columns.join(",")} FROM ${dataset}.${table}
-            WHERE ${Object.entries(conditions)
-              .map(([left, right]) =>
-                typeof right === "string"
-                  ? `${left} = '${right}'`
-                  : `${left} ${right.operator} '${right.value}'`
-              )
-              .join(" AND ")};`,
+    query: sql.format(
+      `SELECT ${columns.join(",")} FROM ${dataset}.${table}
+            WHERE ${queries.join(" AND ")};`,
+      values
+    ),
   });
 
   return res;
