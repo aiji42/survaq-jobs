@@ -1,0 +1,22 @@
+{
+  "name": "facebook-alert",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx index.ts",
+    "typeckeck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tsconfig/node18": "^1.0.1",
+    "@types/node": "^18.11.18",
+    "tsx": "^3.12.2",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "@slack/web-api": "^6.8.0",
+    "@survaq-jobs/libraries": "*",
+    "dotenv": "^16.0.3"
+  }
+}
