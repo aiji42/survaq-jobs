@@ -67,6 +67,10 @@ const slackClient = new WebClient(SLACK_API_TOKEN);
             baseValue = data[setId]?.arpu;
           } else if (key === "cpc_weekly") {
             baseValue = data[setId]?.cpc;
+          } else if (key === "cpm_weekly") {
+            baseValue = data[setId]?.cpm;
+          } else if (key === "ctr_weekly") {
+            baseValue = data[setId]?.ctr;
           }
           if (typeof baseValue === "undefined") {
             return false;
@@ -74,17 +78,13 @@ const slackClient = new WebClient(SLACK_API_TOKEN);
 
           if (operator === ">") {
             return baseValue > value;
-          }
-          if (operator === ">=") {
+          } else if (operator === ">=") {
             return baseValue >= value;
-          }
-          if (operator === "=") {
+          } else if (operator === "=") {
             return baseValue === value;
-          }
-          if (operator === "<=") {
+          } else if (operator === "<=") {
             return baseValue <= value;
-          }
-          if (operator === "<") {
+          } else if (operator === "<") {
             return baseValue < value;
           }
 
@@ -93,6 +93,7 @@ const slackClient = new WebClient(SLACK_API_TOKEN);
       );
 
       if (matched) {
+        // TODO: messageのテンプレート置換
         await slackClient.chat.postMessage({
           channel: alert.channel,
           text: alert.message,
