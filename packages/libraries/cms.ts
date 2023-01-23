@@ -21,7 +21,7 @@ type FacebookAdsBudget = {
 };
 
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
-type RuleKey = "arpu_weekly" | "cpc_weekly";
+type RuleKey = "arpu_weekly" | "cpc_weekly" | "cpm_weekly" | "ctr_weekly";
 
 export type FacebookAdAlertsRule = {
   key: RuleKey;
@@ -30,6 +30,7 @@ export type FacebookAdAlertsRule = {
 }[];
 
 type FacebookAdAlerts = {
+  id: string;
   active: boolean;
   title: string;
   channel: string;
@@ -39,8 +40,8 @@ type FacebookAdAlerts = {
     FacebookAdAlerts_id: string;
     FacebookAdSets_id: {
       accountId: string;
-      accountName: string | null;
-      setName: string | null;
+      accountName: string;
+      setName: string;
       setId: string;
     };
   }>;
@@ -80,10 +81,10 @@ export const getActiveFacebookAdAlerts = async () => {
   const items = await directus.items("FacebookAdAlerts").readByQuery({
     filter: { active: true },
     fields: [
+      "id",
       "title",
       "active",
       "channel",
-      "message",
       "rule",
       "adSets.FacebookAdSets_id.*",
     ],
