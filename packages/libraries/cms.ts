@@ -21,7 +21,12 @@ type FacebookAdsBudget = {
 };
 
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
-type RuleKey = "arpu_weekly" | "cpc_weekly" | "cpm_weekly" | "ctr_weekly";
+type RuleKey =
+  | "arpu_weekly"
+  | "cpc_weekly"
+  | "cpm_weekly"
+  | "ctr_weekly"
+  | "since_last_create";
 
 export type FacebookAdAlertsRule = {
   key: RuleKey;
