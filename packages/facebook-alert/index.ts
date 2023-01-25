@@ -6,11 +6,19 @@ import {
 const { WebClient } = require("@slack/web-api");
 import { config } from "dotenv";
 import { MessageAttachment } from "@slack/web-api";
+import * as adsSdk from "facebook-nodejs-business-sdk";
+import dayjs from "dayjs";
 config();
 
-const { SLACK_API_TOKEN = "", DIRECTUS_URL = "" } = process.env;
+const {
+  SLACK_API_TOKEN = "",
+  DIRECTUS_URL = "",
+  FACEBOOK_GRAPH_API_TOKEN = "",
+} = process.env;
 
 const slackClient = new WebClient(SLACK_API_TOKEN);
+
+adsSdk.FacebookAdsApi.init(FACEBOOK_GRAPH_API_TOKEN);
 
 const facebookAdSetLink = ({
   accountId,
@@ -52,6 +60,23 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
     { date: "2023-01-22", set_id: setIds }
   );
 
+  const daysSinceLastCreateSetId: Record<string, number> = {};
+  for (const setId of setIds) {
+    const adSetApiObj = new adsSdk.AdSet(setId);
+
+    const ads = await adSetApiObj.getAds(["created_time", "status"]);
+
+    const lastCreatedAt = ads.reduce<null | string>((res, ad) => {
+      if (ad["status"] !== "ACTIVE") return res;
+      if (!res) return ad["created_time"];
+      return res > ad["created_time"] ? res : ad["created_time"];
+    }, null);
+    if (!lastCreatedAt) continue;
+    daysSinceLastCreateSetId[setId] = Math.abs(
+      dayjs(lastCreatedAt).diff(dayjs(), "day")
+    );
+  }
+
   const dataBySetId = Object.fromEntries(
     records.map(
       ({
@@ -89,6 +114,8 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
             baseValue = data.cpm;
           } else if (key === "ctr_weekly") {
             baseValue = data.ctr;
+          } else if (key === "since_last_create") {
+            baseValue = daysSinceLastCreateSetId[adSet.setId];
           }
           if (typeof baseValue === "undefined") {
             return false;
@@ -114,28 +141,45 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
           title: adSet.setName,
           title_link: facebookAdSetLink(adSet),
           color: "warning",
-          fields: (alert.rule as FacebookAdAlertsRule).map(({ key }) => ({
-            short: true,
-            ...(key === "arpu_weekly"
-              ? {
-                  title: "ARPU(週)",
-                  value: dataBySetId[adSet.setId]!.arpu.toFixed(2),
-                }
-              : key === "cpc_weekly"
-              ? {
-                  title: "CPC(週)",
-                  value: dataBySetId[adSet.setId]!.cpc.toFixed(2),
-                }
-              : key === "cpm_weekly"
-              ? {
-                  title: "CPM(週)",
-                  value: dataBySetId[adSet.setId]!.cpm.toFixed(2),
-                }
-              : {
-                  title: "CTR(週)",
-                  value: dataBySetId[adSet.setId]!.ctr.toFixed(2),
-                }),
-          })),
+          fields: (alert.rule as FacebookAdAlertsRule)
+            .map(({ key }) => ({
+              short: true,
+              ...(key === "arpu_weekly"
+                ? {
+                    title: "ARPU(週)",
+                    value: dataBySetId[adSet.setId]!.arpu.toFixed(2),
+                  }
+                : key === "cpc_weekly"
+                ? {
+                    title: "CPC(週)",
+                    value: dataBySetId[adSet.setId]!.cpc.toFixed(2),
+                  }
+                : key === "cpm_weekly"
+                ? {
+                    title: "CPM(週)",
+                    value: dataBySetId[adSet.setId]!.cpm.toFixed(2),
+                  }
+                : key === "ctr_weekly"
+                ? {
+                    title: "CTR(週)",
+                    value: dataBySetId[adSet.setId]!.ctr.toFixed(2),
+                  }
+                : key === "since_last_create"
+                ? {
+                    title: "最終バナー作成日からの経過日数",
+                    value: daysSinceLastCreateSetId[adSet.setId] ?? "",
+                  }
+                : undefined),
+            }))
+            .filter(
+              (
+                field
+              ): field is {
+                title: string;
+                value: string;
+                short: boolean;
+              } => !!field.title && !!field.value
+            ),
         });
       }
     }
