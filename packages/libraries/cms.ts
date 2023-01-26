@@ -12,12 +12,18 @@ export type FacebookAdsBudgetStrategy = Array<{
 
 type FacebookAdsBudget = {
   active: boolean;
-  accountId: string;
-  accountName: string | null;
-  setName: string | null;
-  setId: string;
+  title: string;
   strategy: FacebookAdsBudgetStrategy;
   intervalDays: number;
+  adSetList: Array<{
+    FacebookAdAlerts_id: string;
+    FacebookAdSets_id: {
+      accountId: string;
+      accountName: string;
+      setName: string;
+      setId: string;
+    };
+  }>;
 };
 
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
@@ -61,19 +67,15 @@ const directus = new Directus<Collections>(DIRECTUS_URL, {
   auth: { mode: "cookie", staticToken: DIRECTUS_TOKEN },
 });
 
-export const getActiveFacebookAdsBudgets = async (): Promise<
-  FacebookAdsBudget[]
-> => {
+export const getActiveFacebookAdsBudgets = async () => {
   const items = await directus.items("FacebookAdsBudget").readByQuery({
     filter: { active: true },
     fields: [
-      "accountId",
-      "accountName",
+      "title",
       "active",
-      "setName",
-      "setId",
       "strategy",
       "intervalDays",
+      "adSetList.FacebookAdSets_id.*",
     ],
     limit: 100,
   });

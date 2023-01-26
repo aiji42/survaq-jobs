@@ -14,13 +14,27 @@ const main = async () => {
   const referenceDate = today.add(-1, "day");
 
   const plans = await getActiveFacebookAdsBudgets();
-
-  console.log("Find", plans.length, "plans");
+  const flattenPlans = plans.flatMap(({ adSetList, ...plan }) =>
+    adSetList.map((adSet) => ({
+      ...plan,
+      accountId: adSet.FacebookAdSets_id.accountId,
+      accountName: adSet.FacebookAdSets_id.accountName,
+      setName: adSet.FacebookAdSets_id.setName,
+      setId: adSet.FacebookAdSets_id.setId,
+    }))
+  );
+  console.log(
+    "Find",
+    plans.length,
+    "plans with",
+    flattenPlans.length,
+    "ad sets"
+  );
 
   console.log("Reference date:", referenceDate.format("YYYY-MM-DD"));
 
   const processed = [];
-  for (const plan of plans) {
+  for (const plan of flattenPlans) {
     const [record] = await getRecords<{
       return_1week_sum: number;
       spend_1week_sum: number;
