@@ -88,7 +88,7 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
       }) => [
         set_id,
         {
-          arpu: return_1week_sum / spend_1week_sum,
+          roas: return_1week_sum / spend_1week_sum,
           cpc: spend_1week_sum / clicks_1week_sum,
           cpm: (spend_1week_sum / impressions_1week_sum) * 1000,
           ctr: clicks_1week_sum / impressions_1week_sum,
@@ -106,8 +106,8 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
       const matched = (alert.rule as FacebookAdAlertsRule).every(
         ({ key, value, operator }) => {
           let baseValue: number | undefined;
-          if (key === "arpu_weekly") {
-            baseValue = data.arpu;
+          if (key === "roas_weekly") {
+            baseValue = data.roas;
           } else if (key === "cpc_weekly") {
             baseValue = data.cpc;
           } else if (key === "cpm_weekly") {
@@ -144,10 +144,10 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
           fields: (alert.rule as FacebookAdAlertsRule)
             .map(({ key }) => ({
               short: true,
-              ...(key === "arpu_weekly"
+              ...(key === "roas_weekly"
                 ? {
-                    title: "ARPU(週)",
-                    value: dataBySetId[adSet.setId]!.arpu.toFixed(2),
+                    title: "ROAS(週)",
+                    value: dataBySetId[adSet.setId]!.roas.toFixed(2),
                   }
                 : key === "cpc_weekly"
                 ? {

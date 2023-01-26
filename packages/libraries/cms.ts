@@ -28,7 +28,7 @@ type FacebookAdsBudget = {
 
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
 type RuleKey =
-  | "arpu_weekly"
+  | "roas_weekly"
   | "cpc_weekly"
   | "cpm_weekly"
   | "ctr_weekly"
