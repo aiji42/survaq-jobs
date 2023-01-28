@@ -37,7 +37,13 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
 
 (async () => {
   const alerts = await getActiveFacebookAdAlerts();
-  const setIds = alerts.flatMap(({ adSets }) =>
+  const filteredAlert = alerts.filter(({ dayOfWeek }) => {
+    return dayOfWeek.includes(String(dayjs().day()));
+  });
+
+  if (filteredAlert.length < 1) return;
+
+  const setIds = filteredAlert.flatMap(({ adSets }) =>
     adSets.map(({ FacebookAdSets_id: { setId } }) => setId)
   );
 
@@ -97,7 +103,7 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
     )
   );
 
-  for (const alert of alerts) {
+  for (const alert of filteredAlert) {
     const slackAttachments: MessageAttachment[] = [];
     for (const { FacebookAdSets_id: adSet } of alert.adSets) {
       const data = dataBySetId[adSet.setId];

@@ -56,6 +56,7 @@ type FacebookAdAlerts = {
       setId: string;
     };
   }>;
+  dayOfWeek: Array<"0" | "1" | "2" | "3" | "4" | "5" | "6">;
 };
 
 type Collections = {
@@ -94,6 +95,7 @@ export const getActiveFacebookAdAlerts = async () => {
       "channel",
       "rule",
       "adSets.FacebookAdSets_id.*",
+      "dayOfWeek",
     ],
     limit: 100,
   });
