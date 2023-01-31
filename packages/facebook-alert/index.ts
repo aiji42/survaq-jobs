@@ -63,7 +63,7 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
       "clicks_1week_sum",
       "impressions_1week_sum",
     ],
-    { date: "2023-01-22", set_id: setIds }
+    { date: dayjs().add(-1, "day").format("YYYY-MM-DD"), set_id: setIds }
   );
 
   const daysSinceLastCreateSetId: Record<string, number> = {};
