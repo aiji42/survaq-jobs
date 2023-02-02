@@ -47,7 +47,7 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
     adSets.map(({ FacebookAdSets_id: { setId } }) => setId)
   );
 
-  const records = await getRecords<{
+  const currentWeekRecords = await getRecords<{
     set_id: string;
     return_1week_sum: number;
     spend_1week_sum: number;
@@ -64,6 +64,16 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
       "impressions_1week_sum",
     ],
     { date: dayjs().add(-1, "day").format("YYYY-MM-DD"), set_id: setIds }
+  );
+  const lastWeekRecords = await getRecords<{
+    set_id: string;
+    spend_1week_sum: number;
+    clicks_1week_sum: number;
+  }>(
+    "calc_for_roas",
+    "facebook",
+    ["set_id", "spend_1week_sum", "clicks_1week_sum"],
+    { date: dayjs().add(-7, "day").format("YYYY-MM-DD"), set_id: setIds }
   );
 
   const daysSinceLastCreateSetId: Record<string, number> = {};
@@ -84,22 +94,34 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
   }
 
   const dataBySetId = Object.fromEntries(
-    records.map(
+    currentWeekRecords.map(
       ({
         set_id,
         spend_1week_sum,
         return_1week_sum,
         clicks_1week_sum,
         impressions_1week_sum,
-      }) => [
-        set_id,
-        {
-          roas: return_1week_sum / spend_1week_sum,
-          cpc: spend_1week_sum / clicks_1week_sum,
-          cpm: (spend_1week_sum / impressions_1week_sum) * 1000,
-          ctr: clicks_1week_sum / impressions_1week_sum,
-        },
-      ]
+      }) => {
+        const lastWeek = lastWeekRecords.find(
+          (lastWeek) => set_id === lastWeek.set_id
+        );
+        const cpcLastWeek = lastWeek
+          ? lastWeek.spend_1week_sum / lastWeek.clicks_1week_sum
+          : null;
+        return [
+          set_id,
+          {
+            roas: return_1week_sum / spend_1week_sum,
+            cpc: spend_1week_sum / clicks_1week_sum,
+            cpcLastWeek,
+            cpcChangeRate: cpcLastWeek
+              ? spend_1week_sum / clicks_1week_sum / cpcLastWeek
+              : Infinity,
+            cpm: (spend_1week_sum / impressions_1week_sum) * 1000,
+            ctr: clicks_1week_sum / impressions_1week_sum,
+          },
+        ];
+      }
     )
   );
 
@@ -116,6 +138,8 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
             baseValue = data.roas;
           } else if (key === "cpc_weekly") {
             baseValue = data.cpc;
+          } else if (key === "cpc_weekly_change_rate") {
+            baseValue = data.cpcChangeRate;
           } else if (key === "cpm_weekly") {
             baseValue = data.cpm;
           } else if (key === "ctr_weekly") {
@@ -143,6 +167,7 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
         }
       );
       if (matched) {
+        const adSetData = dataBySetId[adSet.setId]!;
         slackAttachments.push({
           title: adSet.setName,
           title_link: facebookAdSetLink(adSet),
@@ -153,22 +178,31 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
               ...(key === "roas_weekly"
                 ? {
                     title: "ROAS(週)",
-                    value: dataBySetId[adSet.setId]!.roas.toFixed(2),
+                    value: adSetData.roas.toFixed(2),
                   }
                 : key === "cpc_weekly"
                 ? {
                     title: "CPC(週)",
-                    value: dataBySetId[adSet.setId]!.cpc.toFixed(2),
+                    value: adSetData.cpc.toFixed(2),
+                  }
+                : key === "cpc_weekly_change_rate"
+                ? {
+                    title: "CPC(週変動率)",
+                    value: `${adSetData.cpcChangeRate.toFixed(
+                      2
+                    )} (${adSetData.cpc.toFixed(2)} / ${
+                      adSetData.cpcLastWeek?.toFixed(2) ?? "-"
+                    })`,
                   }
                 : key === "cpm_weekly"
                 ? {
                     title: "CPM(週)",
-                    value: dataBySetId[adSet.setId]!.cpm.toFixed(2),
+                    value: adSetData.cpm.toFixed(2),
                   }
                 : key === "ctr_weekly"
                 ? {
                     title: "CTR(週)",
-                    value: dataBySetId[adSet.setId]!.ctr.toFixed(2),
+                    value: adSetData.ctr.toFixed(2),
                   }
                 : key === "since_last_create"
                 ? {

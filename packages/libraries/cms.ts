@@ -32,6 +32,7 @@ type RuleKey =
   | "cpc_weekly"
   | "cpm_weekly"
   | "ctr_weekly"
+  | "cpc_weekly_change_rate"
   | "since_last_create";
 
 export type FacebookAdAlertsRule = {
