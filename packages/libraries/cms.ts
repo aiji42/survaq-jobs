@@ -29,10 +29,13 @@ type FacebookAdsBudget = {
 type RuleOperator = "<" | "<=" | "=" | ">=" | ">";
 type RuleKey =
   | "roas_weekly"
+  | "roas_weekly_change_rate"
+  | "roas_monthly_change_rate"
   | "cpc_weekly"
   | "cpm_weekly"
   | "ctr_weekly"
   | "cpc_weekly_change_rate"
+  | "cpc_monthly_change_rate"
   | "since_last_create";
 
 export type FacebookAdAlertsRule = {

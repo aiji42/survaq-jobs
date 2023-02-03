@@ -20,6 +20,14 @@ const slackClient = new WebClient(SLACK_API_TOKEN);
 
 adsSdk.FacebookAdsApi.init(FACEBOOK_GRAPH_API_TOKEN);
 
+type BQRecord = {
+  set_id: string;
+  return_1week_sum: number;
+  spend_1week_sum: number;
+  clicks_1week_sum: number;
+  impressions_1week_sum: number;
+};
+
 const facebookAdSetLink = ({
   accountId,
   setId,
@@ -47,33 +55,36 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
     adSets.map(({ FacebookAdSets_id: { setId } }) => setId)
   );
 
-  const currentWeekRecords = await getRecords<{
-    set_id: string;
-    return_1week_sum: number;
-    spend_1week_sum: number;
-    clicks_1week_sum: number;
-    impressions_1week_sum: number;
-  }>(
+  const columns = [
+    "set_id",
+    "return_1week_sum",
+    "spend_1week_sum",
+    "clicks_1week_sum",
+    "impressions_1week_sum",
+  ];
+
+  const currentWeekRecords = await getRecords<BQRecord>(
     "calc_for_roas",
     "facebook",
-    [
-      "set_id",
-      "return_1week_sum",
-      "spend_1week_sum",
-      "clicks_1week_sum",
-      "impressions_1week_sum",
-    ],
-    { date: dayjs().add(-1, "day").format("YYYY-MM-DD"), set_id: setIds }
+    columns,
+    {
+      date: dayjs().add(-1, "day").format("YYYY-MM-DD"),
+      set_id: setIds,
+    }
   );
-  const lastWeekRecords = await getRecords<{
-    set_id: string;
-    spend_1week_sum: number;
-    clicks_1week_sum: number;
-  }>(
+  const lastWeekRecords = await getRecords<BQRecord>(
     "calc_for_roas",
     "facebook",
-    ["set_id", "spend_1week_sum", "clicks_1week_sum"],
+
+    columns,
     { date: dayjs().add(-7, "day").format("YYYY-MM-DD"), set_id: setIds }
+  );
+  const lastMonthRecords = await getRecords<BQRecord>(
+    "calc_for_roas",
+    "facebook",
+
+    columns,
+    { date: dayjs().add(-31, "day").format("YYYY-MM-DD"), set_id: setIds }
   );
 
   const daysSinceLastCreateSetId: Record<string, number> = {};
@@ -102,21 +113,39 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
         clicks_1week_sum,
         impressions_1week_sum,
       }) => {
+        const roas = return_1week_sum / spend_1week_sum;
+        const cpc = spend_1week_sum / clicks_1week_sum;
         const lastWeek = lastWeekRecords.find(
           (lastWeek) => set_id === lastWeek.set_id
         );
         const cpcLastWeek = lastWeek
           ? lastWeek.spend_1week_sum / lastWeek.clicks_1week_sum
           : null;
+        const roasLastWeek = lastWeek
+          ? lastWeek.return_1week_sum / lastWeek.spend_1week_sum
+          : null;
+        const lastMonth = lastMonthRecords.find(
+          (lastWeek) => set_id === lastWeek.set_id
+        );
+        const cpcLastMonth = lastMonth
+          ? lastMonth.spend_1week_sum / lastMonth.clicks_1week_sum
+          : null;
+        const roasLastMonth = lastMonth
+          ? lastMonth.return_1week_sum / lastMonth.spend_1week_sum
+          : null;
         return [
           set_id,
           {
-            roas: return_1week_sum / spend_1week_sum,
-            cpc: spend_1week_sum / clicks_1week_sum,
+            roas,
+            roasLastWeek,
+            roasChangeRateWeekly: roasLastWeek ? roas / roasLastWeek : 0,
+            roasLastMonth,
+            roasChangeRateMonthly: roasLastMonth ? roas / roasLastMonth : 0,
+            cpc,
             cpcLastWeek,
-            cpcChangeRate: cpcLastWeek
-              ? spend_1week_sum / clicks_1week_sum / cpcLastWeek
-              : Infinity,
+            cpcChangeRateWeekly: cpcLastWeek ? cpc / cpcLastWeek : Infinity,
+            cpcLastMonth,
+            cpcChangeRateMonthly: cpcLastMonth ? cpc / cpcLastMonth : Infinity,
             cpm: (spend_1week_sum / impressions_1week_sum) * 1000,
             ctr: clicks_1week_sum / impressions_1week_sum,
           },
@@ -136,10 +165,16 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
           let baseValue: number | undefined;
           if (key === "roas_weekly") {
             baseValue = data.roas;
+          } else if (key === "roas_weekly_change_rate") {
+            baseValue = data.roasChangeRateWeekly;
+          } else if (key === "roas_monthly_change_rate") {
+            baseValue = data.roasChangeRateMonthly;
           } else if (key === "cpc_weekly") {
             baseValue = data.cpc;
           } else if (key === "cpc_weekly_change_rate") {
-            baseValue = data.cpcChangeRate;
+            baseValue = data.cpcChangeRateWeekly;
+          } else if (key === "cpc_monthly_change_rate") {
+            baseValue = data.cpcChangeRateMonthly;
           } else if (key === "cpm_weekly") {
             baseValue = data.cpm;
           } else if (key === "ctr_weekly") {
@@ -180,6 +215,24 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
                     title: "ROAS(週)",
                     value: adSetData.roas.toFixed(2),
                   }
+                : key === "roas_weekly_change_rate"
+                ? {
+                    title: "ROAS変動比(先週比)",
+                    value: `${adSetData.roasChangeRateWeekly.toFixed(
+                      2
+                    )} (${adSetData.roas.toFixed(2)} / ${
+                      adSetData.roasLastWeek?.toFixed(2) ?? "-"
+                    })`,
+                  }
+                : key === "roas_monthly_change_rate"
+                ? {
+                    title: "ROAS変動比(先月比)",
+                    value: `${adSetData.roasChangeRateMonthly.toFixed(
+                      2
+                    )} (${adSetData.roas.toFixed(2)} / ${
+                      adSetData.roasLastMonth?.toFixed(2) ?? "-"
+                    })`,
+                  }
                 : key === "cpc_weekly"
                 ? {
                     title: "CPC(週)",
@@ -187,11 +240,20 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
                   }
                 : key === "cpc_weekly_change_rate"
                 ? {
-                    title: "CPC(週変動率)",
-                    value: `${adSetData.cpcChangeRate.toFixed(
+                    title: "CPC変動比(先週比)",
+                    value: `${adSetData.cpcChangeRateWeekly.toFixed(
                       2
                     )} (${adSetData.cpc.toFixed(2)} / ${
                       adSetData.cpcLastWeek?.toFixed(2) ?? "-"
+                    })`,
+                  }
+                : key === "cpc_monthly_change_rate"
+                ? {
+                    title: "CPC変動比(先月比)",
+                    value: `${adSetData.cpcChangeRateMonthly.toFixed(
+                      2
+                    )} (${adSetData.cpc.toFixed(2)} / ${
+                      adSetData.cpcLastMonth?.toFixed(2) ?? "-"
                     })`,
                   }
                 : key === "cpm_weekly"
