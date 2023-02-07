@@ -4,7 +4,7 @@ import {
   getLatestTimeAt,
   sliceByNumber,
   sleep,
-  supabase,
+  createSupabaseClient,
   getRecords,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
@@ -29,6 +29,7 @@ type WithPageInfo<T> = T & {
 };
 
 const shopify = createShopifyClient();
+const supabase = createSupabaseClient();
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${

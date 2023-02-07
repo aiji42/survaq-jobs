@@ -5,4 +5,5 @@ config();
 
 const { SUPABASE_URL = "", SUPABASE_KEY = "" } = process.env;
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY);
+export const createSupabaseClient = () =>
+  createClient<Database>(SUPABASE_URL, SUPABASE_KEY);
