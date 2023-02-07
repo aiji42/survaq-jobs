@@ -4,6 +4,8 @@ import {
   getLatestTimeAt,
   sliceByNumber,
   sleep,
+  supabase,
+  getRecords,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import {
@@ -652,6 +654,42 @@ export const smartShoppingPerformance = async () => {
   if (!process.env["DRY_RUN"]) await Promise.all(files.map((f) => f.delete()));
 };
 
+const fundingsOnCMS = async () => {
+  const { data } = await supabase
+    .from("ShopifyProductGroups")
+    .select("id,ShopifyProducts(*)");
+  if (!data) return;
+  for (const { id: groupId, ShopifyProducts: products } of data) {
+    if (!Array.isArray(products)) continue;
+    const funding = await getRecords<{
+      totalPrice: number;
+      supporters: number;
+    }>(
+      "line_items",
+      "shopify",
+      [
+        "sum(original_total_price) AS totalPrice",
+        "count(distinct order_id) AS supporters",
+      ],
+      {
+        product_id: products.map(
+          ({ productId }) => `gid://shopify/Product/${productId}`
+        ),
+      }
+    );
+
+    const { totalPrice, supporters } = funding[0] ?? {};
+    if (totalPrice && supporters)
+      await supabase
+        .from("ShopifyProductGroups")
+        .update({
+          realTotalPrice: totalPrice,
+          realSupporters: supporters,
+        })
+        .match({ id: groupId });
+  }
+};
+
 const decode = <T extends string | null | undefined>(src: T): T => {
   if (typeof src !== "string") return src;
   try {
@@ -669,6 +707,8 @@ const main = async () => {
   await ordersAndLineItems();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
+  console.log("Sync fundings on cms");
+  await fundingsOnCMS();
 };
 main().catch((e) => {
   console.log(e);

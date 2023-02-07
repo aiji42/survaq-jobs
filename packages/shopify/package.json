@@ -15,8 +15,8 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "@survaq-jobs/libraries": "*",
     "@google-cloud/storage": "^6.9.0",
+    "@survaq-jobs/libraries": "*",
     "csv-parse": "^5.3.3",
     "dayjs": "^1.11.7",
     "dotenv": "^16.0.3",

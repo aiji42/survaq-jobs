@@ -16,6 +16,7 @@
   "dependencies": {
     "@directus/sdk": "^10.3.1",
     "@google-cloud/bigquery": "^6.0.3",
+    "@supabase/supabase-js": "^2.7.1",
     "sqlstring": "^2.3.3"
   }
 }
