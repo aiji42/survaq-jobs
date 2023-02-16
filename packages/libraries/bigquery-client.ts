@@ -65,7 +65,43 @@ export const getRecords = async <
   return res;
 };
 
-export const insertRecords = <
+export const updateRecords = async (
+  table: string,
+  dataset: string,
+  data: Record<string, any>,
+  whereField: string,
+  whereValue: string | string[]
+) => {
+  const query = makeUpdateQuery(table, dataset, data, whereField, whereValue);
+  if (DRY_RUN) {
+    console.log("DRY RUN: update records", dataset, table);
+    console.log(query);
+  } else {
+    await client.query({
+      query,
+    });
+  }
+};
+
+const makeUpdateQuery = (
+  table: string,
+  dataset: string,
+  data: Record<string, any>,
+  whereField: string,
+  whereValue: string | string[]
+) => {
+  return sql.format(
+    `
+    UPDATE ${dataset}.${table} SET ${Object.keys(data)
+      .map((k) => `${k} = ?`)
+      .join(", ")}
+    WHERE ${whereField} ${Array.isArray(whereValue) ? "IN (?)" : "= ?"}
+    `,
+    [...Object.values(data), whereValue]
+  );
+};
+
+export const insertRecords = async <
   T extends Record<string, string | number | boolean | null>
 >(
   table: string,
@@ -73,18 +109,20 @@ export const insertRecords = <
   columns: Array<keyof T>,
   data: T[]
 ) => {
+  const query = makeInsertQuery(table, dataset, columns as string[], data);
   if (DRY_RUN) {
     console.log("DRY RUN: insert records", dataset, table);
     console.log("columns", columns);
     if (Object.keys(data[0] ?? {}).length < 20) {
       console.table(data.slice(0, 10));
       if (data.length > 10) console.log("and more...");
-      return;
     }
+    console.log(query);
+  } else {
+    await client.query({
+      query,
+    });
   }
-  return client.query({
-    query: makeInsertQuery(table, dataset, columns as string[], data),
-  });
 };
 
 const makeInsertQuery = (

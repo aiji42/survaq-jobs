@@ -1035,7 +1035,7 @@ export interface Database {
       }
       ShopifyCustomSKUs: {
         Row: {
-          code: string | null
+          code: string
           createdAt: string | null
           deliverySchedule: string | null
           id: number
@@ -1044,7 +1044,7 @@ export interface Database {
           updatedAt: string | null
         }
         Insert: {
-          code?: string | null
+          code?: string
           createdAt?: string | null
           deliverySchedule?: string | null
           id?: number
@@ -1053,12 +1053,71 @@ export interface Database {
           updatedAt?: string | null
         }
         Update: {
-          code?: string | null
+          code?: string
           createdAt?: string | null
           deliverySchedule?: string | null
           id?: number
           name?: string
           subName?: string | null
+          updatedAt?: string | null
+        }
+      }
+      ShopifyPages: {
+        Row: {
+          body: string | null
+          buyButton: boolean
+          createdAt: string | null
+          customBody: string | null
+          customHead: string | null
+          description: string | null
+          domain: string
+          favicon: string | null
+          id: number
+          logo: string | null
+          ogpImageUrl: string | null
+          ogpShortTitle: string | null
+          pathname: string
+          product: number
+          productHandle: string
+          title: string | null
+          updatedAt: string | null
+        }
+        Insert: {
+          body?: string | null
+          buyButton?: boolean
+          createdAt?: string | null
+          customBody?: string | null
+          customHead?: string | null
+          description?: string | null
+          domain: string
+          favicon?: string | null
+          id?: number
+          logo?: string | null
+          ogpImageUrl?: string | null
+          ogpShortTitle?: string | null
+          pathname: string
+          product: number
+          productHandle: string
+          title?: string | null
+          updatedAt?: string | null
+        }
+        Update: {
+          body?: string | null
+          buyButton?: boolean
+          createdAt?: string | null
+          customBody?: string | null
+          customHead?: string | null
+          description?: string | null
+          domain?: string
+          favicon?: string | null
+          id?: number
+          logo?: string | null
+          ogpImageUrl?: string | null
+          ogpShortTitle?: string | null
+          pathname?: string
+          product?: number
+          productHandle?: string
+          title?: string | null
           updatedAt?: string | null
         }
       }
@@ -1068,6 +1127,7 @@ export interface Database {
           createdAt: string | null
           deliverySchedule: string | null
           id: number
+          microCmsProductGroupId: string | null
           realSupporters: number
           realTotalPrice: number
           supporters: number | null
@@ -1080,6 +1140,7 @@ export interface Database {
           createdAt?: string | null
           deliverySchedule?: string | null
           id?: number
+          microCmsProductGroupId?: string | null
           realSupporters?: number
           realTotalPrice?: number
           supporters?: number | null
@@ -1092,6 +1153,7 @@ export interface Database {
           createdAt?: string | null
           deliverySchedule?: string | null
           id?: number
+          microCmsProductGroupId?: string | null
           realSupporters?: number
           realTotalPrice?: number
           supporters?: number | null
@@ -1133,6 +1195,7 @@ export interface Database {
           deliverySchedule: string | null
           id: number
           product: number | null
+          skuLabel: string | null
           updatedAt: string | null
           variantId: string
           variantName: string
@@ -1143,6 +1206,7 @@ export interface Database {
           deliverySchedule?: string | null
           id?: number
           product?: number | null
+          skuLabel?: string | null
           updatedAt?: string | null
           variantId: string
           variantName: string
@@ -1153,6 +1217,7 @@ export interface Database {
           deliverySchedule?: string | null
           id?: number
           product?: number | null
+          skuLabel?: string | null
           updatedAt?: string | null
           variantId?: string
           variantName?: string
@@ -1163,16 +1228,19 @@ export interface Database {
           id: number
           ShopifyCustomSKUs_id: number | null
           ShopifyVariants_id: number | null
+          sort: number | null
         }
         Insert: {
           id?: number
           ShopifyCustomSKUs_id?: number | null
           ShopifyVariants_id?: number | null
+          sort?: number | null
         }
         Update: {
           id?: number
           ShopifyCustomSKUs_id?: number | null
           ShopifyVariants_id?: number | null
+          sort?: number | null
         }
       }
     }
@@ -1183,6 +1251,9 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }

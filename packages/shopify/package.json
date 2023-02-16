@@ -20,7 +20,6 @@
     "csv-parse": "^5.3.3",
     "dayjs": "^1.11.7",
     "dotenv": "^16.0.3",
-    "microcms-js-sdk": "^2.3.2",
     "shopify-api-node": "^3.12.1"
   }
 }

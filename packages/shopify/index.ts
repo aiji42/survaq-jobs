@@ -6,12 +6,9 @@ import {
   sleep,
   createSupabaseClient,
   getRecords,
+  updateRecords,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
-import {
-  getProductOnMicroCMS,
-  getProductsOnMicroCMSByUpdatedAt,
-} from "./microCMS";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 
@@ -71,22 +68,29 @@ type Product = {
 };
 
 export const products = async (): Promise<void> => {
+  const { data: groups } = await supabase
+    .from("ShopifyProductGroups")
+    .select("microCmsProductGroupId,title,ShopifyProducts(productId)")
+    .limit(1000);
+  const productIdAndGroupMappings =
+    groups
+      ?.filter(
+        ({ microCmsProductGroupId, title }) =>
+          !!microCmsProductGroupId && !!title
+      )
+      .map(({ microCmsProductGroupId, title, ShopifyProducts }) => ({
+        microCmsProductGroupId: microCmsProductGroupId as string,
+        title: title as string,
+        productIds: Array.isArray(ShopifyProducts)
+          ? ShopifyProducts.map(
+              ({ productId }) => `gid://shopify/Product/${productId}`
+            )
+          : [],
+      })) ?? [];
+
   const currentSyncedAt = new Date().toISOString();
   const lastSyncedAt = await getLatestTimeAt("products", "shopify", "syncedAt");
-  const productsFromCMS = await getProductsOnMicroCMSByUpdatedAt(lastSyncedAt);
-  const productIds = [
-    ...new Set(
-      productsFromCMS.reduce<string[]>((res, { productIds }) => {
-        return [...res, ...productIds.map((id) => `shopify/Product/${id}`)];
-      }, [])
-    ),
-  ];
-  const productIdsQuery =
-    productIds.length > 0 ? `(${productIds.join(" OR ")})` : "";
-
-  const query = `updated_at:>'${lastSyncedAt}'${
-    productIdsQuery ? ` OR ${productIdsQuery}` : ""
-  }`;
+  const query = `updated_at:>'${lastSyncedAt}'`;
   console.log("Graphql query: ", query);
   let hasNext = true;
   let cursor: null | string = null;
@@ -96,18 +100,14 @@ export const products = async (): Promise<void> => {
       await shopify.graphql(productListQuery(query, cursor));
     hasNext = data.products.pageInfo.hasNextPage;
 
-    for (let edge of data.products.edges) {
-      cursor = edge.cursor;
-      const { productGroupId, productGroupName } = await getProductOnMicroCMS(
-        edge.node.id
-      );
+    data.products.edges.forEach((edge) => {
       products.push({
         ...edge.node,
-        productGroupId,
-        productGroupName,
+        productGroupId: null,
+        productGroupName: null,
         syncedAt: currentSyncedAt,
       });
-    }
+    });
 
     if (hasNext) {
       console.log("has next cursor: ", cursor);
@@ -134,6 +134,22 @@ export const products = async (): Promise<void> => {
       ],
       products
     );
+  }
+
+  if (productIdAndGroupMappings.length) {
+    for (const productIdAndGroup of productIdAndGroupMappings) {
+      console.log("update products group mapping:", productIdAndGroup.title);
+      await updateRecords(
+        "products",
+        "shopify",
+        {
+          productGroupId: productIdAndGroup.microCmsProductGroupId,
+          productGroupName: productIdAndGroup.title,
+        },
+        "id",
+        productIdAndGroup.productIds
+      );
+    }
   }
 };
 
