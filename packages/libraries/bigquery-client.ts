@@ -168,6 +168,17 @@ export const deleteByField = async (
   });
 };
 
+export const truncateTable = async (table: string, dataset: string) => {
+  if (DRY_RUN) {
+    console.log("DRY RUN: TRUNCATE TABLE", dataset, table);
+    return;
+  }
+
+  await client.query({
+    query: `TRUNCATE TABLE ${dataset}.${table}`,
+  });
+};
+
 export const getLatestTimeAt = async (
   table: string,
   dataset: string,

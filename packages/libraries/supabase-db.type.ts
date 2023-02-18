@@ -1033,6 +1033,32 @@ export interface Database {
           setName?: string
         }
       }
+      GoogleMerchantCenter: {
+        Row: {
+          createdAt: string | null
+          id: number
+          merchantCenterId: string
+          shopifyProductGroup: number
+          title: string
+          updatedAt: string | null
+        }
+        Insert: {
+          createdAt?: string | null
+          id?: number
+          merchantCenterId: string
+          shopifyProductGroup: number
+          title: string
+          updatedAt?: string | null
+        }
+        Update: {
+          createdAt?: string | null
+          id?: number
+          merchantCenterId?: string
+          shopifyProductGroup?: number
+          title?: string
+          updatedAt?: string | null
+        }
+      }
       ShopifyCustomSKUs: {
         Row: {
           code: string

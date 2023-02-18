@@ -7,6 +7,7 @@ import {
   createSupabaseClient,
   getRecords,
   updateRecords,
+  truncateTable,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -70,16 +71,13 @@ type Product = {
 export const products = async (): Promise<void> => {
   const { data: groups } = await supabase
     .from("ShopifyProductGroups")
-    .select("microCmsProductGroupId,title,ShopifyProducts(productId)")
+    .select("id,title,ShopifyProducts(productId)")
     .limit(1000);
   const productIdAndGroupMappings =
     groups
-      ?.filter(
-        ({ microCmsProductGroupId, title }) =>
-          !!microCmsProductGroupId && !!title
-      )
-      .map(({ microCmsProductGroupId, title, ShopifyProducts }) => ({
-        microCmsProductGroupId: microCmsProductGroupId as string,
+      ?.filter(({ title }) => !!title)
+      .map(({ id, title, ShopifyProducts }) => ({
+        id: String(id),
         title: title as string,
         productIds: Array.isArray(ShopifyProducts)
           ? ShopifyProducts.map(
@@ -143,7 +141,7 @@ export const products = async (): Promise<void> => {
         "products",
         "shopify",
         {
-          productGroupId: productIdAndGroup.microCmsProductGroupId,
+          productGroupId: productIdAndGroup.id,
           productGroupName: productIdAndGroup.title,
         },
         "id",
@@ -669,6 +667,26 @@ export const smartShoppingPerformance = async () => {
   }
 
   if (!process.env["DRY_RUN"]) await Promise.all(files.map((f) => f.delete()));
+
+  const { data: mcMapping } = await supabase
+    .from("GoogleMerchantCenter")
+    .select("merchantCenterId,shopifyProductGroup")
+    .limit(1000);
+
+  if (mcMapping && mcMapping.length > 0) {
+    console.log("delete merchant_center.mappings all records");
+    await truncateTable("mappings", "merchant_center");
+    console.log("insert merchant_center.mappings", mcMapping.length, "records");
+    await insertRecords(
+      "mappings",
+      "merchant_center",
+      ["feedId", "productGroupId"],
+      mcMapping.map(({ merchantCenterId, shopifyProductGroup }) => ({
+        feedId: merchantCenterId,
+        productGroupId: String(shopifyProductGroup),
+      }))
+    );
+  }
 };
 
 const fundingsOnCMS = async () => {
