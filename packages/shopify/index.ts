@@ -71,6 +71,7 @@ type Product = {
 
 export const products = async (): Promise<void> => {
   const groups = await getShopifyProductGroups();
+  console.log(groups);
   const productIdAndGroupMappings =
     groups
       ?.filter(({ title }) => !!title)
