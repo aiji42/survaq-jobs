@@ -139,7 +139,11 @@ const main = async () => {
 
   if (processed.length > 0) console.table(processed);
 };
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

@@ -43,7 +43,7 @@ const facebookAdSetLink = ({
 const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
   `${DIRECTUS_URL}/admin/content/FacebookAdAlerts/${id}`;
 
-(async () => {
+const main = async () => {
   const alerts = await getActiveFacebookAdAlerts();
   const filteredAlert = alerts.filter(({ dayOfWeek }) => {
     return (dayOfWeek as string[]).includes(String(dayjs().day()));
@@ -300,4 +300,12 @@ const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
       });
     }
   }
-})();
+};
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.log(e);
+    process.exit(1);
+  });

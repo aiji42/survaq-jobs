@@ -138,7 +138,11 @@ const main = async () => {
   }
 };
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.log(e);
+    process.exit(1);
+  });

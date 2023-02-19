@@ -687,7 +687,7 @@ export const smartShoppingPerformance = async () => {
 const fundingsOnCMS = async () => {
   const data = await getShopifyProductGroups();
   if (!data) return;
-  for (const { id: groupId, ShopifyProducts: products } of data) {
+  for (const { id: groupId, title, ShopifyProducts: products } of data) {
     if (!Array.isArray(products)) continue;
     const funding = await getRecords<{
       totalPrice: number;
@@ -707,11 +707,13 @@ const fundingsOnCMS = async () => {
     );
 
     const { totalPrice, supporters } = funding[0] ?? {};
-    if (totalPrice && supporters)
+    if (totalPrice && supporters) {
+      console.log("update fundings:", title);
       await updateShopifyProductGroups(groupId, {
         realTotalPrice: totalPrice,
         realSupporters: supporters,
       });
+    }
   }
 };
 
@@ -735,7 +737,11 @@ const main = async () => {
   console.log("Sync fundings on cms");
   await fundingsOnCMS();
 };
-main().catch((e) => {
-  console.log(e);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.log(e);
+    process.exit(1);
+  });
