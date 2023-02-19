@@ -5,6 +5,9 @@
   "author": "aiji42",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "postinstall": "yarn workspace @survaq-jobs/libraries prisma generate"
+  },
   "workspaces": [
     "packages/*"
   ],

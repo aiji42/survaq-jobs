@@ -4,10 +4,12 @@ import {
   getLatestTimeAt,
   sliceByNumber,
   sleep,
-  createSupabaseClient,
   getRecords,
   updateRecords,
   truncateTable,
+  getShopifyProductGroups,
+  getGoogleMerchantCenter,
+  updateShopifyProductGroups,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -27,7 +29,6 @@ type WithPageInfo<T> = T & {
 };
 
 const shopify = createShopifyClient();
-const supabase = createSupabaseClient();
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${
@@ -69,10 +70,7 @@ type Product = {
 };
 
 export const products = async (): Promise<void> => {
-  const { data: groups } = await supabase
-    .from("ShopifyProductGroups")
-    .select("id,title,ShopifyProducts(productId)")
-    .limit(1000);
+  const groups = await getShopifyProductGroups();
   const productIdAndGroupMappings =
     groups
       ?.filter(({ title }) => !!title)
@@ -668,12 +666,9 @@ export const smartShoppingPerformance = async () => {
 
   if (!process.env["DRY_RUN"]) await Promise.all(files.map((f) => f.delete()));
 
-  const { data: mcMapping } = await supabase
-    .from("GoogleMerchantCenter")
-    .select("merchantCenterId,shopifyProductGroup")
-    .limit(1000);
+  const mcMapping = await getGoogleMerchantCenter();
 
-  if (mcMapping && mcMapping.length > 0) {
+  if (mcMapping.length > 0) {
     console.log("delete merchant_center.mappings all records");
     await truncateTable("mappings", "merchant_center");
     console.log("insert merchant_center.mappings", mcMapping.length, "records");
@@ -690,9 +685,7 @@ export const smartShoppingPerformance = async () => {
 };
 
 const fundingsOnCMS = async () => {
-  const { data } = await supabase
-    .from("ShopifyProductGroups")
-    .select("id,ShopifyProducts(*)");
+  const data = await getShopifyProductGroups();
   if (!data) return;
   for (const { id: groupId, ShopifyProducts: products } of data) {
     if (!Array.isArray(products)) continue;
@@ -715,13 +708,10 @@ const fundingsOnCMS = async () => {
 
     const { totalPrice, supporters } = funding[0] ?? {};
     if (totalPrice && supporters)
-      await supabase
-        .from("ShopifyProductGroups")
-        .update({
-          realTotalPrice: totalPrice,
-          realSupporters: supporters,
-        })
-        .match({ id: groupId });
+      await updateShopifyProductGroups(groupId, {
+        realTotalPrice: totalPrice,
+        realSupporters: supporters,
+      });
   }
 };
 
