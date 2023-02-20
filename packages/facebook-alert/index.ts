@@ -194,8 +194,8 @@ const main = async () => {
         },
       ];
 
-      ruleSets.forEach((ruleSet) => {
-        if ((ruleSet.rule as FacebookAdAlertsRule).length < 1) return;
+      for (const ruleSet of ruleSets) {
+        if ((ruleSet.rule as FacebookAdAlertsRule).length < 1) continue;
         const matched = (ruleSet.rule as FacebookAdAlertsRule).every(
           ({ key, value, operator }) => {
             let baseValue: number | undefined;
@@ -326,8 +326,10 @@ const main = async () => {
                 } => !!field.title && !!field.value
               ),
           });
+
+          break;
         }
-      });
+      }
     }
     if (slackAttachments.length > 0) {
       const message = {
