@@ -4,12 +4,12 @@ import {
   getLatestTimeAt,
   sliceByNumber,
   sleep,
-  getRecords,
   updateRecords,
   truncateTable,
   getShopifyProductGroups,
   getGoogleMerchantCenter,
   updateShopifyProductGroups,
+  getFundingsByProductGroup,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -132,6 +132,7 @@ export const products = async (): Promise<void> => {
     );
   }
 
+  // TODO: クエリの発行を1回にできないか
   if (productIdAndGroupMappings.length) {
     for (const productIdAndGroup of productIdAndGroupMappings) {
       console.log("update products group mapping:", productIdAndGroup.title);
@@ -686,35 +687,21 @@ export const smartShoppingPerformance = async () => {
 
 const fundingsOnCMS = async () => {
   const data = await getShopifyProductGroups();
-  if (!data) return;
-  for (const { id: groupId, title, ShopifyProducts: products } of data) {
-    if (!Array.isArray(products)) continue;
-    const funding = await getRecords<{
-      totalPrice: number;
-      supporters: number;
-    }>(
-      "line_items",
-      "shopify",
-      [
-        "sum(original_total_price) AS totalPrice",
-        "count(distinct order_id) AS supporters",
-      ],
-      {
-        product_id: products.map(
-          ({ productId }) => `gid://shopify/Product/${productId}`
-        ),
+  const fundings = await getFundingsByProductGroup();
+  await Promise.all(
+    data.map(async ({ id, title }) => {
+      const funding = fundings.find(
+        ({ productGroupId }) => String(id) === productGroupId
+      );
+      if (funding) {
+        console.log("update fundings:", title);
+        await updateShopifyProductGroups(id, {
+          realTotalPrice: funding.totalPrice,
+          realSupporters: funding.supporters,
+        });
       }
-    );
-
-    const { totalPrice, supporters } = funding[0] ?? {};
-    if (totalPrice && supporters) {
-      console.log("update fundings:", title);
-      await updateShopifyProductGroups(groupId, {
-        realTotalPrice: totalPrice,
-        realSupporters: supporters,
-      });
-    }
-  }
+    })
+  );
 };
 
 const decode = <T extends string | null | undefined>(src: T): T => {
@@ -729,7 +716,6 @@ const decode = <T extends string | null | undefined>(src: T): T => {
 const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
-  await sleep(10);
   console.log("Sync orders and lineItems");
   await ordersAndLineItems();
   console.log("Sync smart shopping performance");
