@@ -90,6 +90,7 @@ export const getShopifyProductGroups = async () => {
           productId: true,
         },
       },
+      updatedAt: true,
     },
   });
 };

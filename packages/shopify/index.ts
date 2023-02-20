@@ -74,9 +74,10 @@ export const products = async (): Promise<void> => {
   const productIdAndGroupMappings =
     groups
       ?.filter(({ title }) => !!title)
-      .map(({ id, title, ShopifyProducts }) => ({
+      .map(({ id, title, ShopifyProducts, updatedAt }) => ({
         id: String(id),
         title: title as string,
+        updatedAt,
         productIds: Array.isArray(ShopifyProducts)
           ? ShopifyProducts.map(
               ({ productId }) => `gid://shopify/Product/${productId}`
@@ -97,10 +98,13 @@ export const products = async (): Promise<void> => {
     hasNext = data.products.pageInfo.hasNextPage;
 
     data.products.edges.forEach((edge) => {
+      const group = productIdAndGroupMappings.find(({ productIds }) =>
+        productIds.includes(edge.node.id)
+      );
       products.push({
         ...edge.node,
-        productGroupId: null,
-        productGroupName: null,
+        productGroupId: group?.id ?? null,
+        productGroupName: group?.title ?? null,
         syncedAt: currentSyncedAt,
       });
     });
@@ -132,21 +136,23 @@ export const products = async (): Promise<void> => {
     );
   }
 
-  // TODO: クエリの発行を1回にできないか
-  if (productIdAndGroupMappings.length) {
-    for (const productIdAndGroup of productIdAndGroupMappings) {
-      console.log("update products group mapping:", productIdAndGroup.title);
-      await updateRecords(
-        "products",
-        "shopify",
-        {
-          productGroupId: productIdAndGroup.id,
-          productGroupName: productIdAndGroup.title,
-        },
-        "id",
-        productIdAndGroup.productIds
-      );
-    }
+  for (const productIdAndGroup of productIdAndGroupMappings) {
+    if (
+      productIdAndGroup.updatedAt &&
+      productIdAndGroup.updatedAt < new Date(lastSyncedAt)
+    )
+      continue;
+    console.log("update products group mapping:", productIdAndGroup.title);
+    await updateRecords(
+      "products",
+      "shopify",
+      {
+        productGroupId: productIdAndGroup.id,
+        productGroupName: productIdAndGroup.title,
+      },
+      "id",
+      productIdAndGroup.productIds
+    );
   }
 };
 
