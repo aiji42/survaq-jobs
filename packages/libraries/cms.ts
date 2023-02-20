@@ -18,7 +18,8 @@ type RuleKey =
   | "ctr_weekly"
   | "cpc_weekly_change_rate"
   | "cpc_monthly_change_rate"
-  | "since_last_create";
+  | "since_last_create"
+  | "budget";
 
 export type FacebookAdAlertsRule = {
   key: RuleKey;
@@ -63,6 +64,11 @@ export const getActiveFacebookAdAlerts = async () => {
       active: true,
       channel: true,
       rule: true,
+      level: true,
+      rule2: true,
+      level2: true,
+      rule3: true,
+      level3: true,
       dayOfWeek: true,
       FacebookAdAlerts_FacebookAdSets: {
         select: {

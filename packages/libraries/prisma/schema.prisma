@@ -14,9 +14,14 @@ model FacebookAdAlerts {
   updatedAt                       DateTime?                         @db.Timestamptz(6)
   title                           String                            @db.VarChar(255)
   channel                         String?                           @db.VarChar(255)
-  rule                            Json?                             @default("[]") @db.Json
+  rule                            Json                              @default("[]") @db.Json
   active                          Boolean                           @default(true)
   dayOfWeek                       Json?                             @default("[\"1\",\"2\",\"3\",\"4\",\"5\"]") @db.Json
+  level                           String                            @default("good") @db.VarChar(255)
+  rule2                           Json                              @default("[]") @db.Json
+  level2                          String                            @default("good") @db.VarChar(255)
+  rule3                           Json                              @default("[]") @db.Json
+  level3                          String                            @default("good") @db.VarChar(255)
   FacebookAdAlerts_FacebookAdSets FacebookAdAlerts_FacebookAdSets[]
 }
 
