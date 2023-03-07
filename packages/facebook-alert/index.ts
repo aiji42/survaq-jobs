@@ -3,6 +3,7 @@ import {
   fetchAdSetInfo,
   getActiveFacebookAdAlerts,
   getRecords,
+  sleep,
 } from "@survaq-jobs/libraries";
 const { WebClient } = require("@slack/web-api");
 import { config } from "dotenv";
@@ -342,7 +343,9 @@ const main = async () => {
       if (DRY_RUN) {
         console.log("DRY_RUN: post message", message);
       } else {
+        console.log("post message", message);
         await slackClient.chat.postMessage(message);
+        await sleep(5);
       }
     }
   }
