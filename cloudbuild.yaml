@@ -12,11 +12,11 @@ steps:
       - 'beta'
       - 'run'
       - 'jobs'
-      - 'update' # update or create
-      - 'survaq-jobs-$_BUILD_CONTEXT-us-west1'
+      - 'create' # update or create
+      - 'survaq-jobs-$_BUILD_CONTEXT-asia-northeast1'
       - '--image=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest'
       - '--region'
-      - 'us-west1'
+      - 'asia-northeast1'
       - '--max-retries'
       - '0'
       - '--set-env-vars'
@@ -29,15 +29,15 @@ steps:
     args:
       - 'scheduler'
       - 'jobs'
-      - 'update' # update or create
+      - 'create' # update or create
       - 'http'
       - 'survaq-jobs-$_BUILD_CONTEXT-scheduler'
       - '--location'
-      - 'us-west1'
+      - 'asia-northeast1'
       - '--schedule=$_SCHEDULE'
       - '--time-zone'
       - 'Asia/Tokyo'
-      - '--uri=https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/survaq-jobs-$_BUILD_CONTEXT-us-west1:run'
+      - '--uri=https://asia-northeast1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/survaq-jobs-$_BUILD_CONTEXT-asia-northeast1:run'
       - '--http-method'
       - 'POST'
       - '--oauth-service-account-email'
