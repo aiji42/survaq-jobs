@@ -53,7 +53,7 @@ const main = async () => {
         plan.setId,
         plan.setName
       );
-      return;
+      continue;
     }
 
     const updated = await getRecords("budget_histories", "facebook", ["date"], {
@@ -86,7 +86,7 @@ const main = async () => {
         plan.setId,
         plan.setName
       );
-      return;
+      continue;
     }
 
     const { daily_budget: currentBudget } = await fetchAdSetInfo(plan.setId);
