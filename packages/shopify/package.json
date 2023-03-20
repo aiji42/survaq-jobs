@@ -10,16 +10,16 @@
   },
   "devDependencies": {
     "@tsconfig/node18": "^1.0.1",
-    "@types/node": "^18.11.18",
-    "tsx": "^3.12.2",
+    "@types/node": "^18.15.5",
+    "tsx": "^3.12.6",
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "@google-cloud/storage": "^6.9.0",
+    "@google-cloud/storage": "^6.9.4",
     "@survaq-jobs/libraries": "*",
-    "csv-parse": "^5.3.3",
+    "csv-parse": "^5.3.6",
     "dayjs": "^1.11.7",
     "dotenv": "^16.0.3",
-    "shopify-api-node": "^3.12.1"
+    "shopify-api-node": "^3.12.3"
   }
 }
