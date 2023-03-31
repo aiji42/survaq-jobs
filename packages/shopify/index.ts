@@ -284,6 +284,9 @@ const orderListQuery = (query: string, cursor: null | string) => `{
         name
         display_financial_status: displayFinancialStatus
         display_fulfillment_status: displayFulfillmentStatus
+        fulfillments {
+          createdAt
+        }
         closed
         totalPriceSet {
           shopMoney {
@@ -412,6 +415,7 @@ type OrderNode = {
   };
   display_financial_status: string;
   display_fulfillment_status: string;
+  fulfillments: Fulfillment[];
   closed: boolean;
   totalPriceSet: ShopMoney;
   subtotalPriceSet: ShopMoney;
@@ -424,6 +428,10 @@ type OrderNode = {
   updated_at: string | null;
 };
 
+type Fulfillment = {
+  createdAt: string;
+};
+
 type OrderRecord = Omit<
   OrderNode,
   | "lineItems"
@@ -431,6 +439,7 @@ type OrderRecord = Omit<
   | "totalPriceSet"
   | "subtotalPriceSet"
   | "totalTaxSet"
+  | "fulfillments"
 > & {
   total_price: number;
   subtotal_price: number;
@@ -444,6 +453,7 @@ type OrderRecord = Omit<
   utm_campaign: string | null;
   utm_content: string | null;
   utm_term: string | null;
+  fulfilled_at: string | null;
 };
 
 type CustomVisit = {
@@ -526,6 +536,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           total_tax: Number(node.totalTaxSet.shopMoney.amount),
           landing_page: visit?.landingPage ?? null,
           referrer_url: visit?.referrerUrl ?? null,
+          fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
           source:
             (visit?.source === "an unknown source"
               ? utmSource
@@ -588,6 +599,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "cancelled_at",
         "created_at",
         "updated_at",
+        "fulfilled_at",
         "landing_page",
         "referrer_url",
         "source",
