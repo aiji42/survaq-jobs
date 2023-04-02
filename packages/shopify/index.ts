@@ -465,6 +465,19 @@ type CustomVisit = {
   utm_term: string | null;
 };
 
+type OderSkuRecord = {
+  code: string;
+  order_id: string;
+  product_id: string;
+  variant_id: string;
+  line_item_id: string;
+  ordered_at: string;
+  fulfilled_at: string | null;
+  canceled_at: string | null;
+  closed_at: string | null;
+  quantity: number;
+};
+
 export const ordersAndLineItems = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "orders",
@@ -477,6 +490,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
   let cursor: null | string = null;
   let orders: OrderRecord[] = [];
   let lineItems: LineItemRecord[] = [];
+  // 最終的に sliceByNumber して、oder_id で消すので、sliceした結果でoderが跨がらないようにする
+  let orderSkus: OderSkuRecord[][] = [];
 
   while (hasNext) {
     const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
@@ -512,7 +527,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             ...item,
             order_id: node.id,
             product_id: item.product.id,
-            variant_id: item.variant?.id ?? null,
+            variant_id: item.variant.id,
             original_total_price: Number(
               item.originalTotalSet.shopMoney.amount
             ),
@@ -563,6 +578,37 @@ export const ordersAndLineItems = async (): Promise<void> => {
             decode(customVisitByOrder[node.id]?.utm_term) ??
             null,
         };
+      }),
+    ];
+
+    orderSkus = [
+      ...orderSkus,
+      ...data.orders.edges.map(({ node }) => {
+        return node.lineItems.edges.flatMap(({ node: item }) => {
+          const skus: string[] = JSON.parse(
+            item.customAttributes.find(({ key }) => key === "_skus")?.value ??
+              "[]"
+          );
+          const quantityBySku = skus.reduce<Record<string, number>>(
+            (res, sku) => {
+              return { ...res, [sku]: (res[sku] ?? 0) + 1 };
+            },
+            {}
+          );
+
+          return Object.entries(quantityBySku).map(([sku, qty]) => ({
+            code: sku,
+            order_id: node.id,
+            product_id: item.product.id,
+            variant_id: item.variant.id,
+            line_item_id: item.id,
+            ordered_at: node.created_at ?? new Date().toISOString(),
+            fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
+            canceled_at: node.cancelled_at,
+            closed_at: node.closed_at,
+            quantity: item.quantity * qty,
+          }));
+        });
       }),
     ];
 
@@ -638,6 +684,37 @@ export const ordersAndLineItems = async (): Promise<void> => {
       ],
       items
     );
+  }
+
+  // order_id を使って消すので、sliceByNumberしたときに、order_idがループ間で跨がらない等に、orderごとにまとめてある
+  for (const orderGroups of sliceByNumber(orderSkus, 100)) {
+    for (const items of orderGroups) {
+      if (items.length < 1) continue;
+      console.log("order_sku records:", items.length);
+      await deleteByField(
+        "order_skus",
+        "shopify",
+        "order_id",
+        items.map(({ order_id }) => order_id)
+      );
+      await insertRecords(
+        "order_skus",
+        "shopify",
+        [
+          "code",
+          "order_id",
+          "line_item_id",
+          "product_id",
+          "variant_id",
+          "ordered_at",
+          "fulfilled_at",
+          "canceled_at",
+          "closed_at",
+          "quantity",
+        ],
+        items
+      );
+    }
   }
 };
 
@@ -734,7 +811,7 @@ const decode = <T extends string | null | undefined>(src: T): T => {
 const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
-  console.log("Sync orders and lineItems");
+  console.log("Sync orders, lineItems and skus");
   await ordersAndLineItems();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
