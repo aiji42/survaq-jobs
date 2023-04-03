@@ -372,7 +372,7 @@ type LineItemNode = {
   variant: {
     id: string;
     title: string;
-  };
+  } | null;
   product: {
     id: string;
   };
@@ -469,7 +469,7 @@ type OderSkuRecord = {
   code: string;
   order_id: string;
   product_id: string;
-  variant_id: string;
+  variant_id: string | null;
   line_item_id: string;
   ordered_at: string;
   fulfilled_at: string | null;
@@ -527,7 +527,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             ...item,
             order_id: node.id,
             product_id: item.product.id,
-            variant_id: item.variant.id,
+            variant_id: item.variant?.id ?? null,
             original_total_price: Number(
               item.originalTotalSet.shopMoney.amount
             ),
@@ -600,7 +600,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             code: sku,
             order_id: node.id,
             product_id: item.product.id,
-            variant_id: item.variant.id,
+            variant_id: item.variant?.id ?? null,
             line_item_id: item.id,
             ordered_at: node.created_at ?? new Date().toISOString(),
             fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
