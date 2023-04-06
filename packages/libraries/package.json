@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.ts",
   "license": "MIT",
+  "scripts": {
+    "db:pull": "prisma db pull"
+  },
   "devDependencies": {
     "@tsconfig/node18": "^1.0.1",
     "@types/node": "^18.15.5",

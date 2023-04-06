@@ -14,13 +14,13 @@ model FacebookAdAlerts {
   updatedAt                       DateTime?                         @db.Timestamptz(6)
   title                           String                            @db.VarChar(255)
   channel                         String?                           @db.VarChar(255)
-  rule                            Json                              @default("[]") @db.Json
+  rule                            Json?                             @default("[]") @db.Json
   active                          Boolean                           @default(true)
   dayOfWeek                       Json?                             @default("[\"1\",\"2\",\"3\",\"4\",\"5\"]") @db.Json
   level                           String                            @default("good") @db.VarChar(255)
-  rule2                           Json                              @default("[]") @db.Json
+  rule2                           Json?                             @default("[]") @db.Json
   level2                          String                            @default("good") @db.VarChar(255)
-  rule3                           Json                              @default("[]") @db.Json
+  rule3                           Json?                             @default("[]") @db.Json
   level3                          String                            @default("good") @db.VarChar(255)
   FacebookAdAlerts_FacebookAdSets FacebookAdAlerts_FacebookAdSets[]
 }
@@ -80,6 +80,16 @@ model ShopifyCustomSKUs {
   name                              String                              @db.VarChar(255)
   subName                           String?                             @db.VarChar(255)
   deliverySchedule                  String?                             @db.VarChar(255)
+  inventory                         Int                                 @default(0)
+  incomingStockQtyA                 Int?
+  incomingStockDateA                DateTime?                           @db.Date
+  incomingStockQtyB                 Int?
+  incomingStockQtyC                 Int?
+  incomingStockDateB                DateTime?                           @db.Date
+  incomingStockDateC                DateTime?                           @db.Date
+  availableStock                    String                              @default("REAL") @db.VarChar(255)
+  unshippedOrderCount               Int                                 @default(0)
+  lastSyncedAt                      DateTime?                           @db.Timestamp(6)
   ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
 }
 
@@ -90,7 +100,6 @@ model ShopifyPages {
   title                                               String?         @db.VarChar(255)
   description                                         String?
   customHead                                          String?
-  productHandle                                       String
   customBody                                          String?         @db.VarChar(255)
   product                                             Int
   domain                                              String          @db.VarChar(255)
