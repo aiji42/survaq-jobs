@@ -98,7 +98,7 @@ const main = async () => {
       set_name: plan.setName,
       date: today.format("YYYY-MM-DD"),
       before_budget: Number(currentBudget),
-      after_budget: Math.floor(Number(currentBudget) * ratio),
+      after_budget: Math.max(200, Math.floor(Number(currentBudget) * ratio)),
       change_ratio: ratio,
       roas,
     };
