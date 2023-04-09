@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { config } from "dotenv";
 config();
 
@@ -29,7 +29,7 @@ export type FacebookAdAlertsRule = {
 
 const { DRY_RUN } = process.env;
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 export const getActiveFacebookAdsBudgets = async () => {
   return prisma.facebookAdsBudget.findMany({
@@ -108,6 +108,27 @@ export const getGoogleMerchantCenter = async () => {
       shopifyProductGroup: true,
     },
   });
+};
+
+export const getSkus = async (codes: string[]) => {
+  return prisma.shopifyCustomSKUs.findMany({ where: { code: { in: codes } } });
+};
+
+export const updateSku = async (
+  code: string,
+  data: Pick<
+    Prisma.ShopifyCustomSKUsUpdateInput,
+    "availableStock" | "lastSyncedAt" | "unshippedOrderCount" | "inventory"
+  >
+) => {
+  if (DRY_RUN) {
+    console.log("DRY RUN: update ShopifyCustomSKUs code:", code, data);
+  } else {
+    await prisma.shopifyCustomSKUs.update({
+      where: { code },
+      data,
+    });
+  }
 };
 
 export const updateShopifyProductGroups = async (

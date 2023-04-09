@@ -10,10 +10,19 @@ import {
   getGoogleMerchantCenter,
   updateShopifyProductGroups,
   getFundingsByProductGroup,
+  getSkus,
+  updateSku,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
+import {
+  getCurrentAvailableStockCount,
+  getPendingShipmentCounts,
+  getShippedCounts,
+  nextAvailableStock,
+  validateStockQty,
+} from "./sku";
 
 type EdgesNode<T> = {
   edges: {
@@ -478,7 +487,7 @@ type OderSkuRecord = {
   quantity: number;
 };
 
-export const ordersAndLineItems = async (): Promise<void> => {
+export const ordersAndLineItems = async (): Promise<OderSkuRecord[]> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "orders",
     "shopify",
@@ -585,10 +594,17 @@ export const ordersAndLineItems = async (): Promise<void> => {
       ...orderSkus,
       ...data.orders.edges.map(({ node }) => {
         return node.lineItems.edges.flatMap(({ node: item }) => {
-          const skus: string[] = JSON.parse(
-            item.customAttributes.find(({ key }) => key === "_skus")?.value ??
-              "[]"
-          );
+          const _skus = item.customAttributes.find(
+            ({ key }) => key === "_skus"
+          )?.value;
+          if (_skus === "[]") {
+            // TODO: variantとSKUの紐付けがないということを示しているのでSlackに通知
+          }
+          if (!_skus) {
+            // TODO: なぜか注文にSKUがついていない。フロント側のエラーの可能性がある
+            // ただし昔の注文データもここに入ってくるのでスルーしないといけない
+          }
+          const skus: string[] = JSON.parse(_skus ?? "[]");
           const quantityBySku = skus.reduce<Record<string, number>>(
             (res, sku) => {
               return { ...res, [sku]: (res[sku] ?? 0) + 1 };
@@ -716,6 +732,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
       );
     }
   }
+
+  return orderSkus.flat();
 };
 
 export const smartShoppingPerformance = async () => {
@@ -799,6 +817,59 @@ const fundingsOnCMS = async () => {
   );
 };
 
+const skuScheduleShift = async (skus: OderSkuRecord[]) => {
+  const skuCodes = [...new Set(skus.map(({ code }) => code))];
+  const pendingShipmentCounts = await getPendingShipmentCounts(skuCodes);
+  const skusOnDB = await getSkus(skuCodes);
+  const shippedCounts = await getShippedCounts(
+    skusOnDB.map(({ code, lastSyncedAt }) => ({
+      code,
+      shippedAt: lastSyncedAt?.toISOString() ?? "2023-03-01",
+    }))
+  );
+
+  for (const code of skuCodes) {
+    try {
+      const pendingShipmentCount =
+        pendingShipmentCounts.find((record) => record.code === code)?.count ??
+        0;
+      const shippedCount =
+        shippedCounts.find((record) => record.code === code)?.count ?? 0;
+      const skuOnDB = skusOnDB.find((record) => record.code === code);
+      if (!skuOnDB) throw new Error("SKUの登録がありません");
+
+      // 出荷台数を実在庫数から引く
+      const inventory = Math.max(0, skuOnDB.inventory - shippedCount);
+
+      // 現在販売枠の在庫数
+      const currentAvailableStockCount = getCurrentAvailableStockCount(
+        inventory,
+        skuOnDB
+      );
+      // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
+      let availableStock = skuOnDB.availableStock;
+      if (currentAvailableStockCount - pendingShipmentCount < 10) {
+        // TODO: バッファ数を決める
+        availableStock = nextAvailableStock(availableStock);
+        validateStockQty(availableStock as "A" | "B" | "C", skuOnDB);
+        // TODO: 枠を移動した旨を通知
+      }
+
+      const data = {
+        inventory,
+        availableStock,
+        unshippedOrderCount: pendingShipmentCount,
+        lastSyncedAt: new Date(),
+      };
+      console.log("update sku:", code, data);
+      await updateSku(code, data);
+    } catch (e) {
+      if (e instanceof Error) console.log("skuScheduleShift", code, e.message);
+      // TODO: slackに通知する
+    }
+  }
+};
+
 const decode = <T extends string | null | undefined>(src: T): T => {
   if (typeof src !== "string") return src;
   try {
@@ -812,7 +883,9 @@ const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
-  await ordersAndLineItems();
+  const skus = await ordersAndLineItems();
+  console.log("Shift sku schedule");
+  await skuScheduleShift(skus);
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
   console.log("Sync fundings on cms");
