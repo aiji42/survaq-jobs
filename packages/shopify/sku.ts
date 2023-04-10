@@ -1,5 +1,7 @@
 import { client, getSkus } from "@survaq-jobs/libraries";
 
+const { DIRECTUS_URL = "" } = process.env;
+
 export const getPendingShipmentCounts = async (
   codes: string[]
 ): Promise<Array<{ code: string; count: number }>> => {
@@ -38,6 +40,9 @@ export const getShippedCounts = async (
   return res;
 };
 
+export const cmsSKULink = (id: number) =>
+  `${DIRECTUS_URL}/admin/content/ShopifyCustomSKUs/${id}`;
+
 export const getCurrentAvailableStockCount = (
   inventory: number,
   sku: Awaited<ReturnType<typeof getSkus>>[number]
@@ -61,17 +66,42 @@ export const nextAvailableStock = (
   if (availableStockPointer === "REAL") return "A";
   if (availableStockPointer === "A") return "B";
   if (availableStockPointer === "B") return "C";
-  throw new Error("枠をすべて使い切りました");
+  throw new Error("A~Cまで枠をすべて使い切りました");
 };
 
 export const validateStockQty = (
   availableStock: "A" | "B" | "C",
   sku: Awaited<ReturnType<typeof getSkus>>[number]
 ) => {
-  if (availableStock === "A" && !sku.incomingStockQtyA)
-    throw new Error("A枠の在庫が登録されていません");
-  if (availableStock === "B" && !sku.incomingStockQtyB)
-    throw new Error("B枠の在庫が登録されていません");
-  if (availableStock === "C" && !sku.incomingStockQtyC)
-    throw new Error("C枠の在庫が登録されていません");
+  if (
+    (availableStock === "A" && !sku.incomingStockQtyA) ||
+    !sku.incomingStockDateA
+  )
+    throw new Error("A枠が登録されていません");
+  if (
+    (availableStock === "B" && !sku.incomingStockQtyB) ||
+    !sku.incomingStockDateB
+  )
+    throw new Error("B枠が登録されていません");
+  if (
+    (availableStock === "C" && !sku.incomingStockQtyC) ||
+    !sku.incomingStockDateC
+  )
+    throw new Error("C枠が登録されていません");
+};
+
+export const incomingStock = (
+  availableStock: "A" | "B" | "C",
+  sku: Awaited<ReturnType<typeof getSkus>>[number]
+): [Date, number] => {
+  if (availableStock === "A") {
+    validateStockQty("A", sku);
+    return [sku.incomingStockDateA as Date, sku.incomingStockQtyA as number];
+  }
+  if (availableStock === "B") {
+    validateStockQty("B", sku);
+    return [sku.incomingStockDateB as Date, sku.incomingStockQtyB as number];
+  }
+  validateStockQty("C", sku);
+  return [sku.incomingStockDateC as Date, sku.incomingStockQtyC as number];
 };

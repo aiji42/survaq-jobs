@@ -12,14 +12,17 @@ import {
   getFundingsByProductGroup,
   getSkus,
   updateSku,
+  postMessage,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
+  cmsSKULink,
   getCurrentAvailableStockCount,
   getPendingShipmentCounts,
   getShippedCounts,
+  incomingStock,
   nextAvailableStock,
   validateStockQty,
 } from "./sku";
@@ -829,13 +832,12 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
   );
 
   for (const code of skuCodes) {
+    const pendingShipmentCount =
+      pendingShipmentCounts.find((record) => record.code === code)?.count ?? 0;
+    const shippedCount =
+      shippedCounts.find((record) => record.code === code)?.count ?? 0;
+    const skuOnDB = skusOnDB.find((record) => record.code === code);
     try {
-      const pendingShipmentCount =
-        pendingShipmentCounts.find((record) => record.code === code)?.count ??
-        0;
-      const shippedCount =
-        shippedCounts.find((record) => record.code === code)?.count ?? 0;
-      const skuOnDB = skusOnDB.find((record) => record.code === code);
       if (!skuOnDB) throw new Error("SKUの登録がありません");
 
       // 出荷台数を実在庫数から引く
@@ -848,11 +850,40 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
       );
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let availableStock = skuOnDB.availableStock;
-      if (currentAvailableStockCount - pendingShipmentCount < 10) {
-        // TODO: バッファ数を決める
-        availableStock = nextAvailableStock(availableStock);
-        validateStockQty(availableStock as "A" | "B" | "C", skuOnDB);
-        // TODO: 枠を移動した旨を通知
+      // TODO: バッファ数を決める
+      if (currentAvailableStockCount - pendingShipmentCount <= 10) {
+        const newAvailableStock = nextAvailableStock(availableStock);
+        availableStock = newAvailableStock;
+        validateStockQty(newAvailableStock, skuOnDB);
+        await postMessage("#norify-test", "下記SKUの販売枠を変更しました", [
+          {
+            title: code,
+            title_link: cmsSKULink(skuOnDB.id),
+            color: "good",
+            fields: [
+              {
+                short: true,
+                title: "出荷予定SKU数",
+                value: String(pendingShipmentCount),
+              },
+              {
+                short: true,
+                title: "新しい販売枠",
+                value: availableStock,
+              },
+              {
+                short: true,
+                title: "入荷予定日",
+                value: String(incomingStock(newAvailableStock, skuOnDB)[0]),
+              },
+              {
+                short: true,
+                title: "入荷予定在庫数",
+                value: String(incomingStock(newAvailableStock, skuOnDB)[1]),
+              },
+            ],
+          },
+        ]);
       }
 
       const data = {
@@ -864,8 +895,28 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
       console.log("update sku:", code, data);
       await updateSku(code, data);
     } catch (e) {
-      if (e instanceof Error) console.log("skuScheduleShift", code, e.message);
-      // TODO: slackに通知する
+      if (e instanceof Error) {
+        console.log("skuScheduleShift", code, e.message);
+        await postMessage(
+          "#norify-test",
+          "下記SKUについて早急に確認してください",
+          [
+            {
+              title: code,
+              ...(skuOnDB ? { title_link: cmsSKULink(skuOnDB.id) } : undefined),
+              color: "danger",
+              text: e.message,
+              fields: [
+                {
+                  short: true,
+                  title: "出荷予定数",
+                  value: String(pendingShipmentCount),
+                },
+              ],
+            },
+          ]
+        );
+      }
     }
   }
 };
