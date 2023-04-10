@@ -1,4 +1,4 @@
-import { client, getSkus } from "@survaq-jobs/libraries";
+import { client, getAllSkus } from "@survaq-jobs/libraries";
 
 const { DIRECTUS_URL = "" } = process.env;
 
@@ -45,7 +45,7 @@ export const cmsSKULink = (id: number) =>
 
 export const getCurrentAvailableStockCount = (
   inventory: number,
-  sku: Awaited<ReturnType<typeof getSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
 ) => {
   let count = inventory;
   if (sku.availableStock === "REAL") return count;
@@ -69,9 +69,10 @@ export const nextAvailableStock = (
   throw new Error("A~Cまで枠をすべて使い切りました");
 };
 
+// deliveryScheduleもチェックさせる
 export const validateStockQty = (
   availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
 ) => {
   if (
     (availableStock === "A" && !sku.incomingStockQtyA) ||
@@ -92,7 +93,7 @@ export const validateStockQty = (
 
 export const incomingStock = (
   availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
 ): [Date, number] => {
   if (availableStock === "A") {
     validateStockQty("A", sku);
