@@ -10,7 +10,6 @@ import {
   getGoogleMerchantCenter,
   updateShopifyProductGroups,
   getFundingsByProductGroup,
-  getSkus,
   updateSku,
   postMessage,
   getAllSkus,
@@ -847,8 +846,10 @@ const skuScheduleShift = async () => {
       );
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let availableStock = sku.availableStock;
-      // TODO: バッファ数を決める
-      if (currentAvailableStockCount - pendingShipmentCount <= 10) {
+      if (
+        currentAvailableStockCount - pendingShipmentCount <=
+        sku.stockBuffer
+      ) {
         const newAvailableStock = nextAvailableStock(availableStock);
         availableStock = newAvailableStock;
         validateStockQty(newAvailableStock, sku);
@@ -889,8 +890,14 @@ const skuScheduleShift = async () => {
         unshippedOrderCount: pendingShipmentCount,
         lastSyncedAt: new Date(),
       };
-      console.log("update sku:", sku.code, data);
-      await updateSku(sku.code, data);
+      if (
+        sku.inventory !== data.inventory ||
+        sku.availableStock !== data.availableStock ||
+        sku.unshippedOrderCount !== sku.unshippedOrderCount
+      ) {
+        console.log("update sku:", sku.code, data);
+        await updateSku(sku.code, data);
+      }
     } catch (e) {
       if (e instanceof Error) {
         console.log("skuScheduleShift", sku.code, e.message);
@@ -956,6 +963,7 @@ const skuScheduleShift = async () => {
         );
       }
     }
+    await sleep(0.5);
   }
 };
 

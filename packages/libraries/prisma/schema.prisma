@@ -90,6 +90,10 @@ model ShopifyCustomSKUs {
   availableStock                    String                              @default("REAL") @db.VarChar(255)
   unshippedOrderCount               Int                                 @default(0)
   lastSyncedAt                      DateTime?                           @db.Timestamp(6)
+  stockBuffer                       Int                                 @default(5)
+  incomingStockDeliveryScheduleA    String?                             @db.VarChar(255)
+  incomingStockDeliveryScheduleB    String?                             @db.VarChar(255)
+  incomingStockDeliveryScheduleC    String?                             @db.VarChar(255)
   ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
 }
 
