@@ -855,7 +855,7 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
         const newAvailableStock = nextAvailableStock(availableStock);
         availableStock = newAvailableStock;
         validateStockQty(newAvailableStock, skuOnDB);
-        await postMessage("#norify-test", "下記SKUの販売枠を変更しました", [
+        await postMessage("#notify-test", "下記SKUの販売枠を変更しました", [
           {
             title: code,
             title_link: cmsSKULink(skuOnDB.id),
@@ -898,7 +898,7 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
       if (e instanceof Error) {
         console.log("skuScheduleShift", code, e.message);
         await postMessage(
-          "#norify-test",
+          "#notify-test",
           "下記SKUについて早急に確認してください",
           [
             {
