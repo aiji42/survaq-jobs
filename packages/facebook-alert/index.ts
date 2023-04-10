@@ -3,23 +3,16 @@ import {
   fetchAdSetInfo,
   getActiveFacebookAdAlerts,
   getRecords,
+  postMessage,
   sleep,
+  MessageAttachment,
 } from "@survaq-jobs/libraries";
-const { WebClient } = require("@slack/web-api");
 import { config } from "dotenv";
-import { MessageAttachment } from "@slack/web-api";
 import * as adsSdk from "facebook-nodejs-business-sdk";
 import dayjs from "dayjs";
 config();
 
-const {
-  SLACK_API_TOKEN = "",
-  DIRECTUS_URL = "",
-  FACEBOOK_GRAPH_API_TOKEN = "",
-  DRY_RUN,
-} = process.env;
-
-const slackClient = new WebClient(SLACK_API_TOKEN);
+const { DIRECTUS_URL = "", FACEBOOK_GRAPH_API_TOKEN = "" } = process.env;
 
 adsSdk.FacebookAdsApi.init(FACEBOOK_GRAPH_API_TOKEN);
 
@@ -334,21 +327,13 @@ const main = async () => {
         }
       }
     }
-    if (slackAttachments.length > 0) {
-      const message = {
-        channel: alert.channel,
-        text: `*🔔 <${cmsFacebookAdAlertsContentLink(alert)}|${
-          alert.title
-        }>*\n`,
-        attachments: slackAttachments,
-      };
-      if (DRY_RUN) {
-        console.log("DRY_RUN: post message", message);
-      } else {
-        console.log("post message", message);
-        await slackClient.chat.postMessage(message);
-        await sleep(5);
-      }
+    if (slackAttachments.length > 0 && alert.channel) {
+      await postMessage(
+        alert.channel,
+        `*🔔 <${cmsFacebookAdAlertsContentLink(alert)}|${alert.title}>*\n`,
+        slackAttachments
+      );
+      await sleep(5);
     }
   }
 };

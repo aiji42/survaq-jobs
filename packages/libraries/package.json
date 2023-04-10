@@ -20,6 +20,7 @@
   "dependencies": {
     "@google-cloud/bigquery": "^6.2.0",
     "@prisma/client": "^4.11.0",
+    "@slack/web-api": "^6.8.1",
     "sqlstring": "^2.3.3"
   }
 }
