@@ -13,6 +13,7 @@ import {
   getSkus,
   updateSku,
   postMessage,
+  getAllSkus,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -490,7 +491,7 @@ type OderSkuRecord = {
   quantity: number;
 };
 
-export const ordersAndLineItems = async (): Promise<OderSkuRecord[]> => {
+export const ordersAndLineItems = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "orders",
     "shopify",
@@ -735,8 +736,6 @@ export const ordersAndLineItems = async (): Promise<OderSkuRecord[]> => {
       );
     }
   }
-
-  return orderSkus.flat();
 };
 
 export const smartShoppingPerformance = async () => {
@@ -820,10 +819,11 @@ const fundingsOnCMS = async () => {
   );
 };
 
-const skuScheduleShift = async (skus: OderSkuRecord[]) => {
-  const skuCodes = [...new Set(skus.map(({ code }) => code))];
-  const pendingShipmentCounts = await getPendingShipmentCounts(skuCodes);
-  const skusOnDB = await getSkus(skuCodes);
+const skuScheduleShift = async () => {
+  const skusOnDB = await getAllSkus();
+  const pendingShipmentCounts = await getPendingShipmentCounts(
+    skusOnDB.map(({ code }) => code)
+  );
   const shippedCounts = await getShippedCounts(
     skusOnDB.map(({ code, lastSyncedAt }) => ({
       code,
@@ -831,34 +831,31 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
     }))
   );
 
-  for (const code of skuCodes) {
+  for (const sku of skusOnDB) {
     const pendingShipmentCount =
-      pendingShipmentCounts.find((record) => record.code === code)?.count ?? 0;
+      pendingShipmentCounts.find(({ code }) => code === sku.code)?.count ?? 0;
     const shippedCount =
-      shippedCounts.find((record) => record.code === code)?.count ?? 0;
-    const skuOnDB = skusOnDB.find((record) => record.code === code);
+      shippedCounts.find(({ code }) => code === sku.code)?.count ?? 0;
     try {
-      if (!skuOnDB) throw new Error("SKUの登録がありません");
-
       // 出荷台数を実在庫数から引く
-      const inventory = Math.max(0, skuOnDB.inventory - shippedCount);
+      const inventory = Math.max(0, sku.inventory - shippedCount);
 
       // 現在販売枠の在庫数
       const currentAvailableStockCount = getCurrentAvailableStockCount(
         inventory,
-        skuOnDB
+        sku
       );
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
-      let availableStock = skuOnDB.availableStock;
+      let availableStock = sku.availableStock;
       // TODO: バッファ数を決める
       if (currentAvailableStockCount - pendingShipmentCount <= 10) {
         const newAvailableStock = nextAvailableStock(availableStock);
         availableStock = newAvailableStock;
-        validateStockQty(newAvailableStock, skuOnDB);
+        validateStockQty(newAvailableStock, sku);
         await postMessage("#notify-test", "下記SKUの販売枠を変更しました", [
           {
-            title: code,
-            title_link: cmsSKULink(skuOnDB.id),
+            title: sku.code,
+            title_link: cmsSKULink(sku.id),
             color: "good",
             fields: [
               {
@@ -874,12 +871,12 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
               {
                 short: true,
                 title: "入荷予定日",
-                value: String(incomingStock(newAvailableStock, skuOnDB)[0]),
+                value: String(incomingStock(newAvailableStock, sku)[0]),
               },
               {
                 short: true,
                 title: "入荷予定在庫数",
-                value: String(incomingStock(newAvailableStock, skuOnDB)[1]),
+                value: String(incomingStock(newAvailableStock, sku)[1]),
               },
             ],
           },
@@ -892,54 +889,54 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
         unshippedOrderCount: pendingShipmentCount,
         lastSyncedAt: new Date(),
       };
-      console.log("update sku:", code, data);
-      await updateSku(code, data);
+      console.log("update sku:", sku.code, data);
+      await updateSku(sku.code, data);
     } catch (e) {
       if (e instanceof Error) {
-        console.log("skuScheduleShift", code, e.message);
+        console.log("skuScheduleShift", sku.code, e.message);
         await postMessage(
           "#notify-test",
           "下記SKUについて早急に確認してください",
           [
             {
-              title: code,
-              ...(skuOnDB ? { title_link: cmsSKULink(skuOnDB.id) } : undefined),
+              title: sku.code,
+              ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
               color: "danger",
               text: e.message,
               fields: [
-                ...(skuOnDB
+                ...(sku
                   ? [
                       {
                         short: true,
                         title: "実在庫(出荷処理前)",
-                        value: String(skuOnDB.inventory),
+                        value: String(sku.inventory),
                       },
                     ]
                   : []),
-                ...(skuOnDB?.incomingStockQtyA
+                ...(sku?.incomingStockQtyA
                   ? [
                       {
                         short: true,
                         title: "A枠入荷予定数",
-                        value: String(skuOnDB.incomingStockQtyA),
+                        value: String(sku.incomingStockQtyA),
                       },
                     ]
                   : []),
-                ...(skuOnDB?.incomingStockQtyB
+                ...(sku?.incomingStockQtyB
                   ? [
                       {
                         short: true,
                         title: "B枠入荷予定数",
-                        value: String(skuOnDB.incomingStockQtyB),
+                        value: String(sku.incomingStockQtyB),
                       },
                     ]
                   : []),
-                ...(skuOnDB?.incomingStockQtyC
+                ...(sku?.incomingStockQtyC
                   ? [
                       {
                         short: true,
                         title: "C枠入荷予定数",
-                        value: String(skuOnDB.incomingStockQtyC),
+                        value: String(sku.incomingStockQtyC),
                       },
                     ]
                   : []),
@@ -975,12 +972,9 @@ const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
-  const skus = await ordersAndLineItems();
+  await ordersAndLineItems();
   console.log("Shift sku schedule");
-  // FIXME: エラーでスキップしてしまうと、次のサイクル時にskusに前回トラブルのskuが入ってこないので処理できない
-  // FIXME: エラーでスキップした旨をフラグで残したほうがいい？
-  // FIXME: あるいは全SKU数処理してしまう？
-  await skuScheduleShift(skus);
+  await skuScheduleShift();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
   console.log("Sync fundings on cms");

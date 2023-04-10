@@ -110,8 +110,8 @@ export const getGoogleMerchantCenter = async () => {
   });
 };
 
-export const getSkus = async (codes: string[]) => {
-  return prisma.shopifyCustomSKUs.findMany({ where: { code: { in: codes } } });
+export const getAllSkus = async () => {
+  return prisma.shopifyCustomSKUs.findMany({ take: 1000 });
 };
 
 export const updateSku = async (
