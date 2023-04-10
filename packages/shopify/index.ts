@@ -907,10 +907,51 @@ const skuScheduleShift = async (skus: OderSkuRecord[]) => {
               color: "danger",
               text: e.message,
               fields: [
+                ...(skuOnDB
+                  ? [
+                      {
+                        short: true,
+                        title: "実在庫(出荷処理前)",
+                        value: String(skuOnDB.inventory),
+                      },
+                    ]
+                  : []),
+                ...(skuOnDB?.incomingStockQtyA
+                  ? [
+                      {
+                        short: true,
+                        title: "A枠入荷予定数",
+                        value: String(skuOnDB.incomingStockQtyA),
+                      },
+                    ]
+                  : []),
+                ...(skuOnDB?.incomingStockQtyB
+                  ? [
+                      {
+                        short: true,
+                        title: "B枠入荷予定数",
+                        value: String(skuOnDB.incomingStockQtyB),
+                      },
+                    ]
+                  : []),
+                ...(skuOnDB?.incomingStockQtyC
+                  ? [
+                      {
+                        short: true,
+                        title: "C枠入荷予定数",
+                        value: String(skuOnDB.incomingStockQtyC),
+                      },
+                    ]
+                  : []),
                 {
                   short: true,
-                  title: "出荷予定数",
+                  title: "現在出荷予定数",
                   value: String(pendingShipmentCount),
+                },
+                {
+                  short: true,
+                  title: "今回出荷処理数",
+                  value: String(shippedCount),
                 },
               ],
             },
@@ -936,6 +977,9 @@ const main = async () => {
   console.log("Sync orders, lineItems and skus");
   const skus = await ordersAndLineItems();
   console.log("Shift sku schedule");
+  // FIXME: エラーでスキップしてしまうと、次のサイクル時にskusに前回トラブルのskuが入ってこないので処理できない
+  // FIXME: エラーでスキップした旨をフラグで残したほうがいい？
+  // FIXME: あるいは全SKU数処理してしまう？
   await skuScheduleShift(skus);
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();

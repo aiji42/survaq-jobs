@@ -14,7 +14,7 @@ export const postMessage = async (
   attachments: MessageAttachment[]
 ) => {
   if (DRY_RUN) {
-    console.log("DRY_RUN: post message", channel, attachments);
+    console.log("DRY_RUN: post message", channel, JSON.stringify(attachments));
   } else {
     await slackClient.chat.postMessage({ channel, text, attachments });
   }
