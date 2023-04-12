@@ -893,7 +893,7 @@ const skuScheduleShift = async () => {
       if (
         sku.inventory !== data.inventory ||
         sku.availableStock !== data.availableStock ||
-        sku.unshippedOrderCount !== sku.unshippedOrderCount
+        sku.unshippedOrderCount !== data.unshippedOrderCount
       ) {
         console.log("update sku:", sku.code, data);
         await updateSku(sku.code, data);
