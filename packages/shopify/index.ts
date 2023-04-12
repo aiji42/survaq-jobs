@@ -861,11 +861,6 @@ const skuScheduleShift = async () => {
             fields: [
               {
                 short: true,
-                title: "出荷予定SKU数",
-                value: String(pendingShipmentCount),
-              },
-              {
-                short: true,
                 title: "新しい販売枠",
                 value: availableStock,
               },
@@ -878,6 +873,11 @@ const skuScheduleShift = async () => {
                 short: true,
                 title: "入荷予定在庫数",
                 value: String(incomingStock(newAvailableStock, sku)[1]),
+              },
+              {
+                short: true,
+                title: "出荷待ち件数",
+                value: String(pendingShipmentCount),
               },
             ],
           },
@@ -911,15 +911,31 @@ const skuScheduleShift = async () => {
               color: "danger",
               text: e.message,
               fields: [
-                ...(sku
-                  ? [
-                      {
-                        short: true,
-                        title: "実在庫(出荷処理前)",
-                        value: String(sku.inventory),
-                      },
-                    ]
-                  : []),
+                {
+                  short: true,
+                  title: "現在販売枠",
+                  value: sku.availableStock,
+                },
+                {
+                  short: true,
+                  title: "自動シフト閾値",
+                  value: String(sku.stockBuffer),
+                },
+                {
+                  short: true,
+                  title: "実在庫(出荷処理前)",
+                  value: String(sku.inventory),
+                },
+                {
+                  short: true,
+                  title: "出荷待ち件数",
+                  value: String(pendingShipmentCount),
+                },
+                {
+                  short: true,
+                  title: "今回出荷処理数",
+                  value: String(shippedCount),
+                },
                 ...(sku?.incomingStockQtyA
                   ? [
                       {
@@ -947,16 +963,6 @@ const skuScheduleShift = async () => {
                       },
                     ]
                   : []),
-                {
-                  short: true,
-                  title: "現在出荷予定数",
-                  value: String(pendingShipmentCount),
-                },
-                {
-                  short: true,
-                  title: "今回出荷処理数",
-                  value: String(shippedCount),
-                },
               ],
             },
           ]
