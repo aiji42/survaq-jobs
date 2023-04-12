@@ -69,26 +69,36 @@ export const nextAvailableStock = (
   throw new Error("A~Cまで枠をすべて使い切りました");
 };
 
-// deliveryScheduleもチェックさせる
 export const validateStockQty = (
   availableStock: "A" | "B" | "C",
   sku: Awaited<ReturnType<typeof getAllSkus>>[number]
 ) => {
   if (
-    (availableStock === "A" && !sku.incomingStockQtyA) ||
-    !sku.incomingStockDateA
+    availableStock === "A" &&
+    (!sku.incomingStockQtyA ||
+      !sku.incomingStockDateA ||
+      !isScheduleFormat(sku.incomingStockDeliveryScheduleA))
   )
-    throw new Error("A枠が登録されていません");
+    throw new Error("A枠のデータが不足しているか不備があります");
   if (
-    (availableStock === "B" && !sku.incomingStockQtyB) ||
-    !sku.incomingStockDateB
+    availableStock === "B" &&
+    (!sku.incomingStockQtyB ||
+      !sku.incomingStockDateB ||
+      !isScheduleFormat(sku.incomingStockDeliveryScheduleB))
   )
-    throw new Error("B枠が登録されていません");
+    throw new Error("B枠のデータが不足しているか不備があります");
   if (
-    (availableStock === "C" && !sku.incomingStockQtyC) ||
-    !sku.incomingStockDateC
+    availableStock === "C" &&
+    (!sku.incomingStockQtyC ||
+      !sku.incomingStockDateC ||
+      !isScheduleFormat(sku.incomingStockDeliveryScheduleC))
   )
-    throw new Error("C枠が登録されていません");
+    throw new Error("C枠のデータが不足しているか不備があります");
+};
+
+const isScheduleFormat = (dateString: string | null): boolean => {
+  const regex = /^(\d{4})-(0[1-9]|1[0-2])-(early|middle|late)$/;
+  return regex.test(dateString ?? "");
 };
 
 export const incomingStock = (
