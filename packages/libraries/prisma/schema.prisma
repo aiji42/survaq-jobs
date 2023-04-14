@@ -90,7 +90,7 @@ model ShopifyCustomSKUs {
   availableStock                    String                              @default("REAL") @db.VarChar(255)
   unshippedOrderCount               Int                                 @default(0)
   lastSyncedAt                      DateTime?                           @db.Timestamp(6)
-  stockBuffer                       Int                                 @default(5)
+  stockBuffer                       Int?                                @default(5)
   incomingStockDeliveryScheduleA    String?                             @db.VarChar(255)
   incomingStockDeliveryScheduleB    String?                             @db.VarChar(255)
   incomingStockDeliveryScheduleC    String?                             @db.VarChar(255)
@@ -156,6 +156,7 @@ model ShopifyVariants {
   variantId                         String                              @unique(map: "shopifyvariants_variantid_unique") @db.VarChar(255)
   deliverySchedule                  String?                             @db.VarChar(255)
   skuLabel                          String?                             @db.VarChar(255)
+  skusJSON                          String?                             @db.VarChar(255)
   ShopifyProducts                   ShopifyProducts?                    @relation(fields: [product], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "shopifyvariants_product_foreign")
   ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
 }

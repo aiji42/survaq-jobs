@@ -43,7 +43,7 @@ export const getShippedCounts = async (
 export const cmsSKULink = (id: number) =>
   `${DIRECTUS_URL}/admin/content/ShopifyCustomSKUs/${id}`;
 
-export const getCurrentAvailableStockCount = (
+export const getCurrentAvailableTotalStockCount = (
   inventory: number,
   sku: Awaited<ReturnType<typeof getAllSkus>>[number]
 ) => {

@@ -13,19 +13,23 @@ import {
   updateSku,
   postMessage,
   getAllSkus,
+  getAllVariationSKUData,
+  getAllProducts,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
   cmsSKULink,
-  getCurrentAvailableStockCount,
+  getCurrentAvailableTotalStockCount,
   getPendingShipmentCounts,
   getShippedCounts,
   incomingStock,
   nextAvailableStock,
   validateStockQty,
 } from "./sku";
+import { cmsProductLink } from "./productAndVariation";
+import { cmsVariationLink } from "./productAndVariation";
 
 type EdgesNode<T> = {
   edges: {
@@ -41,6 +45,8 @@ type WithPageInfo<T> = T & {
 };
 
 const shopify = createShopifyClient();
+
+const notifySlackChannel = "#notify-test";
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${
@@ -839,21 +845,49 @@ const skuScheduleShift = async () => {
       // 出荷台数を実在庫数から引く
       const inventory = Math.max(0, sku.inventory - shippedCount);
 
-      // 現在販売枠の在庫数
-      const currentAvailableStockCount = getCurrentAvailableStockCount(
+      // 現在の販売可能在庫数 (現在枠+若い枠の在庫数)
+      const currentAvailableStockCount = getCurrentAvailableTotalStockCount(
         inventory,
         sku
       );
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let availableStock = sku.availableStock;
+
       if (
         currentAvailableStockCount - pendingShipmentCount <=
-        sku.stockBuffer
+        (sku.stockBuffer ?? 0)
       ) {
+        if (currentAvailableStockCount - pendingShipmentCount < 0) {
+          await postMessage(notifySlackChannel, "多売が発生したようです", [
+            {
+              title: sku.code,
+              title_link: cmsSKULink(sku.id),
+              color: "warning",
+              fields: [
+                {
+                  short: true,
+                  title: "現在販売枠",
+                  value: sku.availableStock,
+                },
+                {
+                  short: true,
+                  title: "販売可能数(現在枠より若い枠の累計)",
+                  value: String(currentAvailableStockCount),
+                },
+                {
+                  short: true,
+                  title: "入荷予定在庫数",
+                  value: String(pendingShipmentCount),
+                },
+              ],
+            },
+          ]);
+        }
+
         const newAvailableStock = nextAvailableStock(availableStock);
         availableStock = newAvailableStock;
         validateStockQty(newAvailableStock, sku);
-        await postMessage("#notify-test", "下記SKUの販売枠を変更しました", [
+        await postMessage(notifySlackChannel, "下記SKUの販売枠を変更しました", [
           {
             title: sku.code,
             title_link: cmsSKULink(sku.id),
@@ -902,7 +936,7 @@ const skuScheduleShift = async () => {
       if (e instanceof Error) {
         console.log("skuScheduleShift", sku.code, e.message);
         await postMessage(
-          "#notify-test",
+          notifySlackChannel,
           "下記SKUについて早急に確認してください",
           [
             {
@@ -973,6 +1007,64 @@ const skuScheduleShift = async () => {
   }
 };
 
+const validateCMSData = async () => {
+  const products = await getAllProducts();
+  for (const product of products) {
+    if (!product.productGroupId)
+      await postMessage(notifySlackChannel, "商品グループが紐付いていません", [
+        {
+          title: product.productName,
+          text: cmsProductLink(product.id),
+          color: "red",
+        },
+      ]);
+  }
+
+  const variations = await getAllVariationSKUData();
+  const skuCodeSet = new Set((await getAllSkus()).map(({ code }) => code));
+  const notConnectedSKUVariations = variations.filter(
+    ({ ShopifyVariants_ShopifyCustomSKUs }) =>
+      ShopifyVariants_ShopifyCustomSKUs.length < 1
+  );
+  for (const variations of notConnectedSKUVariations) {
+    const { skusJSON, id, variantName } = variations;
+    if (!skusJSON) {
+      await postMessage(notifySlackChannel, "SKUが紐付いていません", [
+        {
+          title: variantName,
+          text: cmsVariationLink(id),
+          color: "red",
+        },
+      ]);
+      continue;
+    }
+    let skus: string[] = [];
+    try {
+      skus = JSON.parse(skusJSON);
+      if (skus.some((sku) => !skuCodeSet.has(sku)))
+        await postMessage(
+          notifySlackChannel,
+          "指定したSKUコードが間違っています",
+          [
+            {
+              title: variantName,
+              text: cmsVariationLink(id),
+              color: "red",
+            },
+          ]
+        );
+    } catch (_) {
+      await postMessage(notifySlackChannel, "skusJSONが間違っています", [
+        {
+          title: variantName,
+          text: cmsVariationLink(id),
+          color: "red",
+        },
+      ]);
+    }
+  }
+};
+
 const decode = <T extends string | null | undefined>(src: T): T => {
   if (typeof src !== "string") return src;
   try {
@@ -983,6 +1075,8 @@ const decode = <T extends string | null | undefined>(src: T): T => {
 };
 
 const main = async () => {
+  console.log("Validate CMS data");
+  await validateCMSData();
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
