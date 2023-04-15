@@ -12,11 +12,12 @@ import {
   getFundingsByProductGroup,
   updateSku,
   postMessage,
+  MessageAttachment,
   getAllSkus,
   getAllVariationSKUData,
   getAllProducts,
 } from "@survaq-jobs/libraries";
-import { createClient as createShopifyClient } from "./shopify";
+import { createClient as createShopifyClient, orderAdminLink } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
@@ -28,8 +29,7 @@ import {
   nextAvailableStock,
   validateStockQty,
 } from "./sku";
-import { cmsProductLink } from "./productAndVariation";
-import { cmsVariationLink } from "./productAndVariation";
+import { cmsProductLink, cmsVariationLink } from "./productAndVariation";
 
 type EdgesNode<T> = {
   edges: {
@@ -510,6 +510,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
   let lineItems: LineItemRecord[] = [];
   // 最終的に sliceByNumber して、oder_id で消すので、sliceした結果でoderが跨がらないようにする
   let orderSkus: OderSkuRecord[][] = [];
+  const unConnectedSkuOrders: { id: string; name: string }[] = [];
 
   while (hasNext) {
     const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
@@ -606,13 +607,10 @@ export const ordersAndLineItems = async (): Promise<void> => {
           const _skus = item.customAttributes.find(
             ({ key }) => key === "_skus"
           )?.value;
-          if (_skus === "[]") {
-            // TODO: variantとSKUの紐付けがないということを示しているのでSlackに通知
-          }
-          if (!_skus) {
-            // TODO: なぜか注文にSKUがついていない。フロント側のエラーの可能性がある
-            // ただし昔の注文データもここに入ってくるのでスルーしないといけない
-          }
+          // 注文発生時に_skusにデータがなければフロント側の問題の可能性がある
+          if (!_skus && node.created_at === node.updated_at)
+            unConnectedSkuOrders.push({ id: node.id, name: node.name });
+
           const skus: string[] = JSON.parse(_skus ?? "[]");
           const quantityBySku = skus.reduce<Record<string, number>>(
             (res, sku) => {
@@ -741,6 +739,17 @@ export const ordersAndLineItems = async (): Promise<void> => {
       );
     }
   }
+
+  if (unConnectedSkuOrders.length)
+    await postMessage(
+      notifySlackChannel,
+      "SKU情報の無い注文が発生してしまいました。頻発するようであればシステムの問題の可能性があります",
+      unConnectedSkuOrders.map(({ name, id }) => ({
+        title: `注文番号 ${name}`,
+        title_link: orderAdminLink(id),
+        color: "warning",
+      }))
+    );
 };
 
 export const smartShoppingPerformance = async () => {
@@ -1001,23 +1010,23 @@ const skuScheduleShift = async () => {
             },
           ]
         );
+        await sleep(0.5);
       }
     }
-    await sleep(0.5);
   }
 };
 
 const validateCMSData = async () => {
   const products = await getAllProducts();
+  const alerts: MessageAttachment[] = [];
   for (const product of products) {
     if (!product.productGroupId)
-      await postMessage(notifySlackChannel, "商品グループが紐付いていません", [
-        {
-          title: product.productName,
-          text: cmsProductLink(product.id),
-          color: "red",
-        },
-      ]);
+      alerts.push({
+        title: product.productName,
+        title_link: cmsProductLink(product.id),
+        text: "商品にグループが設定されていません",
+        color: "red",
+      });
   }
 
   const variations = await getAllVariationSKUData();
@@ -1029,40 +1038,40 @@ const validateCMSData = async () => {
   for (const variations of notConnectedSKUVariations) {
     const { skusJSON, id, variantName } = variations;
     if (!skusJSON) {
-      await postMessage(notifySlackChannel, "SKUが紐付いていません", [
-        {
-          title: variantName,
-          text: cmsVariationLink(id),
-          color: "red",
-        },
-      ]);
+      alerts.push({
+        title: variantName,
+        title_link: cmsVariationLink(id),
+        text: "バリエーションにSKUが設定されていません",
+        color: "red",
+      });
       continue;
     }
     let skus: string[] = [];
     try {
       skus = JSON.parse(skusJSON);
       if (skus.some((sku) => !skuCodeSet.has(sku)))
-        await postMessage(
-          notifySlackChannel,
-          "指定したSKUコードが間違っています",
-          [
-            {
-              title: variantName,
-              text: cmsVariationLink(id),
-              color: "red",
-            },
-          ]
-        );
-    } catch (_) {
-      await postMessage(notifySlackChannel, "skusJSONが間違っています", [
-        {
+        alerts.push({
           title: variantName,
-          text: cmsVariationLink(id),
+          title_link: cmsVariationLink(id),
+          text: "設定したSKUコード(skusJSON)が間違っています。存在しないコードが設定されています。",
           color: "red",
-        },
-      ]);
+        });
+    } catch (_) {
+      alerts.push({
+        title: variantName,
+        title_link: cmsVariationLink(id),
+        text: "skusJSONの形式が間違っています。",
+        color: "red",
+      });
     }
   }
+
+  if (alerts.length)
+    await postMessage(
+      notifySlackChannel,
+      "設定値に問題が発生しています。確認してください。",
+      alerts
+    );
 };
 
 const decode = <T extends string | null | undefined>(src: T): T => {
