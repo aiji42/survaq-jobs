@@ -834,6 +834,7 @@ const fundingsOnCMS = async () => {
 };
 
 const skuScheduleShift = async () => {
+  const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
   const pendingShipmentCounts = await getPendingShipmentCounts(
     skusOnDB.map(({ code }) => code)
@@ -867,64 +868,62 @@ const skuScheduleShift = async () => {
         (sku.stockBuffer ?? 0)
       ) {
         if (currentAvailableStockCount - pendingShipmentCount < 0) {
-          await postMessage(notifySlackChannel, "多売が発生したようです", [
-            {
-              title: sku.code,
-              title_link: cmsSKULink(sku.id),
-              color: "warning",
-              fields: [
-                {
-                  short: true,
-                  title: "現在販売枠",
-                  value: sku.availableStock,
-                },
-                {
-                  short: true,
-                  title: "販売可能数(現在枠より若い枠の累計)",
-                  value: String(currentAvailableStockCount),
-                },
-                {
-                  short: true,
-                  title: "入荷予定在庫数",
-                  value: String(pendingShipmentCount),
-                },
-              ],
-            },
-          ]);
+          notifies.push({
+            title: sku.code,
+            title_link: cmsSKULink(sku.id),
+            text: "多売が発生したようです",
+            color: "warning",
+            fields: [
+              {
+                short: true,
+                title: "現在販売枠",
+                value: sku.availableStock,
+              },
+              {
+                short: true,
+                title: "販売可能数(現在枠より若い枠の累計)",
+                value: String(currentAvailableStockCount),
+              },
+              {
+                short: true,
+                title: "入荷予定在庫数",
+                value: String(pendingShipmentCount),
+              },
+            ],
+          });
         }
 
         const newAvailableStock = nextAvailableStock(availableStock);
         availableStock = newAvailableStock;
         validateStockQty(newAvailableStock, sku);
-        await postMessage(notifySlackChannel, "下記SKUの販売枠を変更しました", [
-          {
-            title: sku.code,
-            title_link: cmsSKULink(sku.id),
-            color: "good",
-            fields: [
-              {
-                short: true,
-                title: "新しい販売枠",
-                value: availableStock,
-              },
-              {
-                short: true,
-                title: "入荷予定日",
-                value: String(incomingStock(newAvailableStock, sku)[0]),
-              },
-              {
-                short: true,
-                title: "入荷予定在庫数",
-                value: String(incomingStock(newAvailableStock, sku)[1]),
-              },
-              {
-                short: true,
-                title: "出荷待ち件数",
-                value: String(pendingShipmentCount),
-              },
-            ],
-          },
-        ]);
+        notifies.push({
+          title: sku.code,
+          title_link: cmsSKULink(sku.id),
+          text: "下記SKUの販売枠を変更しました",
+          color: "good",
+          fields: [
+            {
+              short: true,
+              title: "新しい販売枠",
+              value: availableStock,
+            },
+            {
+              short: true,
+              title: "入荷予定日",
+              value: String(incomingStock(newAvailableStock, sku)[0]),
+            },
+            {
+              short: true,
+              title: "入荷予定在庫数",
+              value: String(incomingStock(newAvailableStock, sku)[1]),
+            },
+            {
+              short: true,
+              title: "出荷待ち件数",
+              value: String(pendingShipmentCount),
+            },
+          ],
+        });
       }
 
       const data = {
@@ -942,78 +941,75 @@ const skuScheduleShift = async () => {
         await updateSku(sku.code, data);
       }
     } catch (e) {
-      if (e instanceof Error) {
-        console.log("skuScheduleShift", sku.code, e.message);
-        await postMessage(
-          notifySlackChannel,
-          "下記SKUについて早急に確認してください",
-          [
-            {
-              title: sku.code,
-              ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
-              color: "danger",
-              text: e.message,
-              fields: [
-                {
-                  short: true,
-                  title: "現在販売枠",
-                  value: sku.availableStock,
-                },
-                {
-                  short: true,
-                  title: "自動シフト閾値",
-                  value: String(sku.stockBuffer),
-                },
-                {
-                  short: true,
-                  title: "実在庫(出荷処理前)",
-                  value: String(sku.inventory),
-                },
-                {
-                  short: true,
-                  title: "出荷待ち件数",
-                  value: String(pendingShipmentCount),
-                },
-                {
-                  short: true,
-                  title: "今回出荷処理数",
-                  value: String(shippedCount),
-                },
-                ...(sku?.incomingStockQtyA
-                  ? [
-                      {
-                        short: true,
-                        title: "A枠入荷予定数",
-                        value: String(sku.incomingStockQtyA),
-                      },
-                    ]
-                  : []),
-                ...(sku?.incomingStockQtyB
-                  ? [
-                      {
-                        short: true,
-                        title: "B枠入荷予定数",
-                        value: String(sku.incomingStockQtyB),
-                      },
-                    ]
-                  : []),
-                ...(sku?.incomingStockQtyC
-                  ? [
-                      {
-                        short: true,
-                        title: "C枠入荷予定数",
-                        value: String(sku.incomingStockQtyC),
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          ]
-        );
-        await sleep(0.5);
+      if (!(e instanceof Error)) {
+        console.error(e);
+        throw e;
       }
+      console.log("skuScheduleShift", sku.code, e.message);
+      notifies.push({
+        title: sku.code,
+        ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
+        color: "danger",
+        text: e.message,
+        fields: [
+          {
+            short: true,
+            title: "現在販売枠",
+            value: sku.availableStock,
+          },
+          {
+            short: true,
+            title: "自動シフト閾値",
+            value: String(sku.stockBuffer),
+          },
+          {
+            short: true,
+            title: "実在庫(出荷処理前)",
+            value: String(sku.inventory),
+          },
+          {
+            short: true,
+            title: "出荷待ち件数",
+            value: String(pendingShipmentCount),
+          },
+          {
+            short: true,
+            title: "今回出荷処理数",
+            value: String(shippedCount),
+          },
+          ...(sku?.incomingStockQtyA
+            ? [
+                {
+                  short: true,
+                  title: "A枠入荷予定数",
+                  value: String(sku.incomingStockQtyA),
+                },
+              ]
+            : []),
+          ...(sku?.incomingStockQtyB
+            ? [
+                {
+                  short: true,
+                  title: "B枠入荷予定数",
+                  value: String(sku.incomingStockQtyB),
+                },
+              ]
+            : []),
+          ...(sku?.incomingStockQtyC
+            ? [
+                {
+                  short: true,
+                  title: "C枠入荷予定数",
+                  value: String(sku.incomingStockQtyC),
+                },
+              ]
+            : []),
+        ],
+      });
     }
   }
+
+  await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
 };
 
 const validateCMSData = async () => {
