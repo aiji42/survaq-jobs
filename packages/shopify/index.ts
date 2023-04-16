@@ -1025,7 +1025,7 @@ const validateCMSData = async () => {
         title: product.productName,
         title_link: cmsProductLink(product.id),
         text: "商品にグループが設定されていません",
-        color: "red",
+        color: "danger",
       });
   }
 
@@ -1042,7 +1042,7 @@ const validateCMSData = async () => {
         title: variantName,
         title_link: cmsVariationLink(id),
         text: "バリエーションにSKUが設定されていません",
-        color: "red",
+        color: "danger",
       });
       continue;
     }
@@ -1054,14 +1054,14 @@ const validateCMSData = async () => {
           title: variantName,
           title_link: cmsVariationLink(id),
           text: "設定したSKUコード(skusJSON)が間違っています。存在しないコードが設定されています。",
-          color: "red",
+          color: "danger",
         });
     } catch (_) {
       alerts.push({
         title: variantName,
         title_link: cmsVariationLink(id),
         text: "skusJSONの形式が間違っています。",
-        color: "red",
+        color: "danger",
       });
     }
   }
