@@ -1009,7 +1009,8 @@ const skuScheduleShift = async () => {
     }
   }
 
-  await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
+  if (notifies.length)
+    await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
 };
 
 const validateCMSData = async () => {
