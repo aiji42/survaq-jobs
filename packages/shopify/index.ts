@@ -46,7 +46,7 @@ type WithPageInfo<T> = T & {
 
 const shopify = createShopifyClient();
 
-const notifySlackChannel = "#notify-test";
+const notifySlackChannel = "#cms-notify";
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${
