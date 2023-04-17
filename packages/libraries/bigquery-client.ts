@@ -191,7 +191,7 @@ export const getLatestTimeAt = async (
   if (res.length < 1) return "2000-01-01T00:00:00.000Z";
 
   const latest = res[0][column].value;
-  return latest.replace(/\.\d{3}Z$/, ".999Z");
+  return latest.replace(/\.\d{3}Z$/, "Z");
 };
 
 export const getFundingsByProductGroup = async (): Promise<

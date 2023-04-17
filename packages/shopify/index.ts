@@ -608,6 +608,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             ({ key }) => key === "_skus"
           )?.value;
           // 注文発生時に_skusにデータがなければフロント側の問題の可能性がある
+          // TODO: node.created_at === node.updated_at ほとんど発生しない。サンクスメールとか送ったタイミングで変わるので
           if (!_skus && node.created_at === node.updated_at)
             unConnectedSkuOrders.push({ id: node.id, name: node.name });
 
@@ -710,34 +711,33 @@ export const ordersAndLineItems = async (): Promise<void> => {
   }
 
   // order_id を使って消すので、sliceByNumberしたときに、order_idがループ間で跨がらない等に、orderごとにまとめてある
-  for (const orderGroups of sliceByNumber(orderSkus, 100)) {
-    for (const items of orderGroups) {
-      if (items.length < 1) continue;
-      console.log("order_sku records:", items.length);
-      await deleteByField(
-        "order_skus",
-        "shopify",
+  for (const orderSkuGroups of sliceByNumber(orderSkus, 100)) {
+    const items = orderSkuGroups.flat();
+    if (items.length < 1) continue;
+    console.log("order_sku records:", items.length);
+    await deleteByField(
+      "order_skus",
+      "shopify",
+      "order_id",
+      items.map(({ order_id }) => order_id)
+    );
+    await insertRecords(
+      "order_skus",
+      "shopify",
+      [
+        "code",
         "order_id",
-        items.map(({ order_id }) => order_id)
-      );
-      await insertRecords(
-        "order_skus",
-        "shopify",
-        [
-          "code",
-          "order_id",
-          "line_item_id",
-          "product_id",
-          "variant_id",
-          "ordered_at",
-          "fulfilled_at",
-          "canceled_at",
-          "closed_at",
-          "quantity",
-        ],
-        items
-      );
-    }
+        "line_item_id",
+        "product_id",
+        "variant_id",
+        "ordered_at",
+        "fulfilled_at",
+        "canceled_at",
+        "closed_at",
+        "quantity",
+      ],
+      items
+    );
   }
 
   if (unConnectedSkuOrders.length)
