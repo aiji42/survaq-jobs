@@ -300,6 +300,7 @@ const orderListQuery = (query: string, cursor: null | string) => `{
       node {
         id
         name
+        note
         display_financial_status: displayFinancialStatus
         display_fulfillment_status: displayFulfillmentStatus
         fulfillments {
@@ -415,6 +416,7 @@ type LineItemRecord = Omit<
 type OrderNode = {
   id: string;
   name: string;
+  note: string | null;
   lineItems: EdgesNode<LineItemNode>;
   customerJourneySummary?: {
     firstVisit?: {
@@ -510,7 +512,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
   let lineItems: LineItemRecord[] = [];
   // 最終的に sliceByNumber して、oder_id で消すので、sliceした結果でoderが跨がらないようにする
   let orderSkus: OderSkuRecord[][] = [];
-  const unConnectedSkuOrders: { id: string; name: string }[] = [];
+  const unConnectedSkuOrders: OrderNode[] = [];
 
   while (hasNext) {
     const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
@@ -604,13 +606,14 @@ export const ordersAndLineItems = async (): Promise<void> => {
       ...orderSkus,
       ...data.orders.edges.map(({ node }) => {
         return node.lineItems.edges.flatMap(({ node: item }) => {
-          const _skus = item.customAttributes.find(
-            ({ key }) => key === "_skus"
-          )?.value;
-          // 注文発生時に_skusにデータがなければフロント側の問題の可能性がある
-          // TODO: node.created_at === node.updated_at ほとんど発生しない。サンクスメールとか送ったタイミングで変わるので
-          if (!_skus && node.created_at === node.updated_at)
-            unConnectedSkuOrders.push({ id: node.id, name: node.name });
+          // 注文発生時に_skusにデータがつけられなかったものために、メモに{"_skus":["sku-1","sku-2"]}と入力して上書きできるようにする
+          const skusMatch = node.note?.match(/(?<=_skus"[\s]*:[\s]*)\[[^\]]*]/);
+          const _skus =
+            skusMatch?.[0] ??
+            item.customAttributes.find(({ key }) => key === "_skus")?.value;
+
+          if (!_skus && !node.closed && !node.cancelled_at)
+            unConnectedSkuOrders.push(node);
 
           const skus: string[] = JSON.parse(_skus ?? "[]");
           const quantityBySku = skus.reduce<Record<string, number>>(
@@ -743,12 +746,33 @@ export const ordersAndLineItems = async (): Promise<void> => {
   if (unConnectedSkuOrders.length)
     await postMessage(
       notifySlackChannel,
-      "SKU情報の無い注文が発生してしまいました。頻発するようであればシステムの問題の可能性があります",
-      unConnectedSkuOrders.map(({ name, id }) => ({
-        title: `注文番号 ${name}`,
-        title_link: orderAdminLink(id),
-        color: "warning",
-      }))
+      'SKU情報の無いオープンな注文が処理されています。注文時に頻発するようであればシステムの問題の可能性があります。\n注文情報のメモ欄に`{"_skus":["sku-1","sku-2"]}`と入力することでsku情報を上書きできます。',
+      unConnectedSkuOrders.map(
+        ({
+          name,
+          id,
+          created_at,
+          display_fulfillment_status,
+          display_financial_status,
+        }) => ({
+          title: `注文番号 ${name}`,
+          title_link: orderAdminLink(id),
+          color: "warning",
+          fields: [
+            { short: true, title: "購入日時(UTC)", value: created_at ?? "-" },
+            {
+              short: true,
+              title: "決済ステータス",
+              value: display_financial_status,
+            },
+            {
+              short: true,
+              title: "配送ステータス",
+              value: display_fulfillment_status,
+            },
+          ],
+        })
+      )
     );
 };
 
