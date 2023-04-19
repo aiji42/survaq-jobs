@@ -833,14 +833,12 @@ export const ordersAndLineItems = async (): Promise<void> => {
           )
           .join("\n")}`,
       };
-      if (process.env["DRY_RUN"]) {
-        console.log("update order", param);
-      } else {
+      console.log("update order memo for complete sku", order.name, param);
+      if (!process.env["DRY_RUN"])
         await shopify.order.update(
           Number(order.id.replace("gid://shopify/Order/", "")),
           param
         );
-      }
     }
 
     const needNotifies = Object.values(unConnectedSkuOrders).filter(
