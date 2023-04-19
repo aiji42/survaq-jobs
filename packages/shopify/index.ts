@@ -661,7 +661,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
 
           let completedSkus = _skus;
           // variantからSKUが補完できるなら、それでカバーする
-          if (!completedSkus && item.variant?.id) {
+          if ((!completedSkus || completedSkus === "[]") && item.variant?.id) {
             completedSkus =
               variantAndSKUMap[
                 item.variant.id.replace("gid://shopify/ProductVariant/", "")
