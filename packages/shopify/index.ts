@@ -655,7 +655,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           // 注文のメモ欄にデータを残す(variantは消える可能性があるので、補完できたしてもメモに残して次回以降はその情報を優先させる)
           // かつ、variantで補完できなかったものをアラートとして通知する
           if (
-            (!_skus || _skus === "[]") &&
+            (!_skus || (_skus === "[]" && completedSkus === undefined)) &&
             !node.closed &&
             !node.cancelled_at &&
             node.display_fulfillment_status === "UNFULFILLED"
