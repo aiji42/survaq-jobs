@@ -635,29 +635,13 @@ export const ordersAndLineItems = async (): Promise<void> => {
       ...data.orders.edges.map(({ node }) => {
         return node.lineItems.edges.flatMap(({ node: item }) => {
           // 注文発生時に_skusにデータがつけられなかったものために、メモにデータを残して上書きできるようにする
-          const skusOnMemo =
-            node.note
-              ?.match(/\{[^{}]*}/g)
-              ?.reduce<Record<string, string>>((res, text) => {
-                try {
-                  const json = JSON.parse(text);
-                  if (
-                    !!json &&
-                    typeof json === "object" &&
-                    typeof json.lineItemId === "string" &&
-                    Array.isArray(json._skus)
-                  )
-                    return {
-                      ...res,
-                      [json.lineItemId]: JSON.stringify(json._skus),
-                    };
-                } catch {}
-                return res;
-              }, {}) ?? {};
+          const skusOnMemo = parseSKUsInMemo(node.note).find(
+            ({ lineItemId }) => lineItemId === item.id
+          );
 
-          const _skus =
-            skusOnMemo[item.id] ??
-            item.customAttributes.find(({ key }) => key === "_skus")?.value;
+          const _skus = skusOnMemo?._skus
+            ? JSON.stringify(skusOnMemo._skus)
+            : item.customAttributes.find(({ key }) => key === "_skus")?.value;
 
           let completedSkus = _skus;
           // variantからSKUが補完できるなら、それでカバーする
@@ -822,16 +806,14 @@ export const ordersAndLineItems = async (): Promise<void> => {
 
   if (Object.values(unConnectedSkuOrders).length) {
     for (const order of Object.values(unConnectedSkuOrders)) {
+      const newSkus = order.lineItems.map(({ id, name, _skus }) => ({
+        lineItemId: id,
+        name,
+        _skus: JSON.parse(_skus),
+      }));
+      const newNote = stringifySKUsForMemo(order.note ?? "", newSkus);
       const param = {
-        note: `${order.note ?? ""}\n\n${order.lineItems
-          .map((li) =>
-            JSON.stringify(
-              { lineItemId: li.id, name: li.name, _skus: JSON.parse(li._skus) },
-              null,
-              2
-            )
-          )
-          .join("\n")}`,
+        note: newNote,
       };
       console.log("update order memo for complete sku", order.name, param);
       if (!process.env["DRY_RUN"])
@@ -880,6 +862,71 @@ export const ordersAndLineItems = async (): Promise<void> => {
         )
       );
   }
+};
+
+const parseSKUsInMemo = (text: string | null | undefined) => {
+  return (
+    text
+      ?.match(/{[^}]+}/g)
+      ?.reduce<Array<{ lineItemId: string; _skus: string[] }>>((res, text) => {
+        try {
+          const json = JSON.parse(text);
+          if (
+            !!json &&
+            typeof json === "object" &&
+            typeof json.lineItemId === "string" &&
+            Array.isArray(json._skus)
+          )
+            return [...res, json];
+        } catch {}
+        return res;
+      }, []) ?? []
+  );
+};
+
+const stringifySKUsForMemo = (
+  inputText: string,
+  newSkus: Array<{ lineItemId: string; name: string; _skus: string[] }>
+): string => {
+  const originalSkus = parseSKUsInMemo(inputText);
+
+  if (!originalSkus.length) {
+    return (
+      inputText +
+      "\n" +
+      newSkus.map((obj) => JSON.stringify(obj, null, 2)).join("\n")
+    );
+  }
+
+  const updatedSkus = originalSkus.map((originalSku) => {
+    return (
+      newSkus.find(({ lineItemId }) => lineItemId === originalSku.lineItemId) ??
+      originalSku
+    );
+  });
+
+  const insertableSkus = newSkus.filter(
+    (sku) =>
+      !originalSkus.some(({ lineItemId }) => lineItemId === sku.lineItemId)
+  );
+
+  const updatedJsonStrings = [...updatedSkus, ...insertableSkus].map((obj) =>
+    JSON.stringify(obj, null, 2)
+  );
+  const updatedText = inputText.replace(
+    /{[^}]+}/g,
+    () => updatedJsonStrings.shift()!
+  );
+
+  if (insertableSkus.length > 0) {
+    return (
+      updatedText +
+      "\n" +
+      insertableSkus.map((obj) => JSON.stringify(obj, null, 2)).join("\n")
+    );
+  }
+
+  return updatedText;
 };
 
 export const smartShoppingPerformance = async () => {
