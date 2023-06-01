@@ -117,6 +117,7 @@ export const products = async (): Promise<void> => {
     hasNext = data.products.pageInfo.hasNextPage;
 
     data.products.edges.forEach((edge) => {
+      cursor = edge.cursor;
       const group = productIdAndGroupMappings.find(({ productIds }) =>
         productIds.includes(edge.node.id)
       );
