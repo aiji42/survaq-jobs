@@ -1,8 +1,8 @@
 steps:
   - name: 'gcr.io/kaniko-project/executor:latest'
     args:
-      - --destination=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:$COMMIT_SHA
-      - --destination=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest
+      - --destination=asia-northeast1-docker.pkg.dev/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:$COMMIT_SHA
+      - --destination=asia-northeast1-docker.pkg.dev/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest
       - --cache=true
       - --build-arg=BUILD_CONTEXT=$_BUILD_CONTEXT
 
@@ -14,7 +14,7 @@ steps:
       - 'jobs'
       - 'update' # update or create
       - 'survaq-jobs-$_BUILD_CONTEXT-asia-northeast1'
-      - '--image=gcr.io/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest'
+      - '--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/survaq-jobs/$_BUILD_CONTEXT:latest'
       - '--region'
       - 'asia-northeast1'
       - '--max-retries'
