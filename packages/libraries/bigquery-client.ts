@@ -1,6 +1,7 @@
 import * as sql from "sqlstring";
 import { BigQuery } from "@google-cloud/bigquery";
 import { config } from "dotenv";
+export type { BigQueryTimestamp } from "@google-cloud/bigquery";
 config();
 
 const { BIGQUERY_CREDENTIALS, NODE_ENV, DRY_RUN } = process.env;

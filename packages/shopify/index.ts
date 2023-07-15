@@ -1028,8 +1028,8 @@ const skuScheduleShift = async () => {
   for (const sku of skusOnDB) {
     const pendingShipmentCount =
       pendingShipmentCounts.find(({ code }) => code === sku.code)?.count ?? 0;
-    const shippedCount =
-      shippedCounts.find(({ code }) => code === sku.code)?.count ?? 0;
+    const { count: shippedCount = 0, lastShippedAt } =
+      shippedCounts.find(({ code }) => code === sku.code) ?? {};
     try {
       // 出荷台数を実在庫数から引く
       const inventory = Math.max(0, sku.inventory - shippedCount);
@@ -1109,12 +1109,14 @@ const skuScheduleShift = async () => {
         inventory,
         availableStock,
         unshippedOrderCount: pendingShipmentCount,
-        lastSyncedAt: new Date(),
+        // lastSyncedAtという名前だが、最終出荷日時を入れる
+        lastSyncedAt: lastShippedAt?.value ?? sku.lastSyncedAt,
       };
       if (
         sku.inventory !== data.inventory ||
         sku.availableStock !== data.availableStock ||
-        sku.unshippedOrderCount !== data.unshippedOrderCount
+        sku.unshippedOrderCount !== data.unshippedOrderCount ||
+        sku.lastSyncedAt !== data.lastSyncedAt
       ) {
         console.log("update sku:", sku.code, data);
         await updateSku(sku.code, data);
