@@ -1245,11 +1245,13 @@ const validateCMSData = async () => {
   }
 
   if (alerts.length)
-    await postMessage(
-      notifySlackChannel,
-      "設定値に問題が発生しています。確認してください。",
-      alerts
-    );
+    for (const messageAttachments of sliceByNumber(alerts, 10)) {
+      await postMessage(
+        notifySlackChannel,
+        "設定値に問題が発生しています。確認してください。",
+        messageAttachments
+      );
+    }
 };
 
 const decode = <T extends string | null | undefined>(src: T): T => {
