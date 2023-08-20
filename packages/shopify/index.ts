@@ -1410,7 +1410,9 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
     console.log("orders records:", orders.length);
     console.log(
       "orders 消すよ",
-      orders.map(({ created_at }) => created_at)
+      `${orders[0]?.id} (${orders[0]?.created_at}) ~ ${
+        orders[orders.length - 1]?.id
+      } (${orders[orders.length - 1]?.created_at})`
     );
     await deleteByField(
       "orders",
@@ -1418,7 +1420,6 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       "id",
       orders.map(({ id }) => id)
     );
-    console.log("orders 消したよ");
     console.log("orders 挿入するよ");
     await insertRecords(
       "orders",
@@ -1453,7 +1454,6 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       ],
       orders
     );
-    console.log("orders 挿入したよ");
     orders = [];
 
     console.log("line_items records:", lineItems.length);
@@ -1464,7 +1464,6 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       "id",
       lineItems.map(({ id }) => id)
     );
-    console.log("line_items 消したよ");
     console.log("line_items 挿入するよ");
     await insertRecords(
       "line_items",
@@ -1484,7 +1483,6 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       ],
       lineItems
     );
-    console.log("line_items 挿入したよ");
     lineItems = [];
 
     if (hasNext) {
