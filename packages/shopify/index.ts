@@ -319,6 +319,11 @@ const orderListQuery = (query: string, cursor: null | string) => `{
             amount
           }
         }
+        totalShippingPriceSet {
+          shopMoney {
+            amount
+          }
+        }
         totalTaxSet {
           shopMoney {
             amount
@@ -339,6 +344,13 @@ const orderListQuery = (query: string, cursor: null | string) => `{
               originalTotalSet {
                 shopMoney {
                   amount
+                }
+              }
+              taxLines(first: 1) {
+                priceSet {
+                  shopMoney {
+                    amount
+                  }
                 }
               }
               variant {
@@ -385,11 +397,16 @@ type ShopMoney = {
   };
 };
 
+type TaxLine = {
+  priceSet: ShopMoney;
+};
+
 type LineItemNode = {
   id: string;
   name: string;
   quantity: number;
   originalTotalSet: ShopMoney;
+  taxLines: TaxLine[];
   variant: {
     id: string;
     title: string;
@@ -405,12 +422,14 @@ type LineItemNode = {
 
 type LineItemRecord = Omit<
   LineItemNode,
-  "originalTotalSet" | "variant" | "product" | "customAttributes"
+  "originalTotalSet" | "variant" | "product" | "customAttributes" | "taxLines"
 > & {
   order_id: string;
   product_id: string;
   variant_id: string | null;
   original_total_price: number;
+  tax_price: number;
+  without_tax_total_price: number;
   delivery_schedule: string | null;
   skus: string | null;
 };
@@ -441,6 +460,7 @@ type OrderNode = {
   closed: boolean;
   totalPriceSet: ShopMoney;
   subtotalPriceSet: ShopMoney;
+  totalShippingPriceSet: ShopMoney;
   totalTaxSet: ShopMoney;
   taxes_included: boolean;
   subtotal_line_item_quantity: number;
@@ -460,11 +480,14 @@ type OrderRecord = Omit<
   | "customerJourneySummary"
   | "totalPriceSet"
   | "subtotalPriceSet"
+  | "totalShippingPriceSet"
   | "totalTaxSet"
   | "fulfillments"
 > & {
   total_price: number;
   subtotal_price: number;
+  without_tax_total_price: number;
+  total_shopping_price: number;
   total_tax: number;
   landing_page: string | null;
   referrer_url: string | null;
@@ -572,6 +595,10 @@ export const ordersAndLineItems = async (): Promise<void> => {
             original_total_price: Number(
               item.originalTotalSet.shopMoney.amount
             ),
+            tax_price: Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
+            without_tax_total_price:
+              Number(item.originalTotalSet.shopMoney.amount) -
+              Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
             delivery_schedule: null,
             skus: null,
           };
@@ -589,6 +616,12 @@ export const ordersAndLineItems = async (): Promise<void> => {
           ...node,
           total_price: Number(node.totalPriceSet.shopMoney.amount),
           subtotal_price: Number(node.subtotalPriceSet.shopMoney.amount),
+          total_shopping_price: Number(
+            node.totalShippingPriceSet.shopMoney.amount
+          ),
+          without_tax_total_price:
+            Number(node.totalPriceSet.shopMoney.amount) -
+            Number(node.totalTaxSet.shopMoney.amount),
           total_tax: Number(node.totalTaxSet.shopMoney.amount),
           landing_page: visit?.landingPage ?? null,
           referrer_url: visit?.referrerUrl ?? null,
@@ -727,7 +760,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "display_fulfillment_status",
         "closed",
         "total_price",
-        "subtotal_price",
+        "total_shopping_price",
+        "without_tax_total_price",
         "total_tax",
         "taxes_included",
         "subtotal_line_item_quantity",
@@ -769,6 +803,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "product_id",
         "quantity",
         "original_total_price",
+        "tax_price",
+        "without_tax_total_price",
         "delivery_schedule",
         "skus",
       ],
