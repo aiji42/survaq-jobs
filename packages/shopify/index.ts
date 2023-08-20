@@ -1305,7 +1305,7 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
   let lineItems: LineItemRecord[] = [];
 
   let count = 0;
-  let maxCount = 100;
+  let maxCount = 50;
 
   while (hasNext || maxCount >= count) {
     count++;
