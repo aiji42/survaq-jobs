@@ -1307,7 +1307,7 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
   let count = 0;
   let maxCount = 50;
 
-  while (hasNext || maxCount >= count) {
+  while (hasNext && maxCount >= count) {
     count++;
     console.log(count, "回目のループ");
     const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
@@ -1408,12 +1408,18 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
     ];
 
     console.log("orders records:", orders.length);
+    console.log(
+      "orders 消すよ",
+      orders.map(({ created_at }) => created_at)
+    );
     await deleteByField(
       "orders",
       "shopify",
       "id",
       orders.map(({ id }) => id)
     );
+    console.log("orders 消したよ");
+    console.log("orders 挿入するよ");
     await insertRecords(
       "orders",
       "shopify",
@@ -1447,15 +1453,19 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       ],
       orders
     );
+    console.log("orders 挿入したよ");
     orders = [];
 
     console.log("line_items records:", lineItems.length);
+    console.log("line_items 消すよ");
     await deleteByField(
       "line_items",
       "shopify",
       "id",
       lineItems.map(({ id }) => id)
     );
+    console.log("line_items 消したよ");
+    console.log("line_items 挿入するよ");
     await insertRecords(
       "line_items",
       "shopify",
@@ -1474,6 +1484,7 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       ],
       lineItems
     );
+    console.log("line_items 挿入したよ");
     lineItems = [];
 
     if (hasNext) {
