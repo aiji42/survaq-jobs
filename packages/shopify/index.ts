@@ -1293,6 +1293,7 @@ const validateCMSData = async () => {
 };
 
 /** あとで消すよー */
+// GCPのスケジュールの頻度と、Cloud Run のタイムアウトももとに戻す(10分)
 export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
   const createdAt = await getCreatedAtForReFetchOrders();
   if (!createdAt) console.log("もう再取り込みの必要はないよ。");
@@ -1407,87 +1408,89 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
       }),
     ];
 
-    console.log("orders records:", orders.length);
-    console.log(
-      "orders 消すよ",
-      `${orders[0]?.id} (${orders[0]?.created_at}) ~ ${
-        orders[orders.length - 1]?.id
-      } (${orders[orders.length - 1]?.created_at})`
-    );
-    await deleteByField(
-      "orders",
-      "shopify",
-      "id",
-      orders.map(({ id }) => id)
-    );
-    console.log("orders 挿入するよ");
-    await insertRecords(
-      "orders",
-      "shopify",
-      [
+    if (orders.length > 100 || maxCount === count) {
+      console.log("orders records:", orders.length);
+      console.log(
+        "orders 消すよ",
+        `${orders[0]?.id} (${orders[0]?.created_at}) ~ ${
+          orders[orders.length - 1]?.id
+        } (${orders[orders.length - 1]?.created_at})`
+      );
+      await deleteByField(
+        "orders",
+        "shopify",
         "id",
-        "name",
-        "display_financial_status",
-        "display_fulfillment_status",
-        "closed",
-        "total_price",
-        "subtotal_price",
-        "total_shopping_price",
-        "without_tax_total_price",
-        "total_tax",
-        "taxes_included",
-        "subtotal_line_item_quantity",
-        "closed_at",
-        "cancelled_at",
-        "created_at",
-        "updated_at",
-        "fulfilled_at",
-        "landing_page",
-        "referrer_url",
-        "source",
-        "source_type",
-        "utm_source",
-        "utm_medium",
-        "utm_campaign",
-        "utm_content",
-        "utm_term",
-      ],
-      orders
-    );
-    orders = [];
+        orders.map(({ id }) => id)
+      );
+      console.log("orders 挿入するよ");
+      await insertRecords(
+        "orders",
+        "shopify",
+        [
+          "id",
+          "name",
+          "display_financial_status",
+          "display_fulfillment_status",
+          "closed",
+          "total_price",
+          "subtotal_price",
+          "total_shopping_price",
+          "without_tax_total_price",
+          "total_tax",
+          "taxes_included",
+          "subtotal_line_item_quantity",
+          "closed_at",
+          "cancelled_at",
+          "created_at",
+          "updated_at",
+          "fulfilled_at",
+          "landing_page",
+          "referrer_url",
+          "source",
+          "source_type",
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_content",
+          "utm_term",
+        ],
+        orders
+      );
+      orders = [];
 
-    console.log("line_items records:", lineItems.length);
-    console.log("line_items 消すよ");
-    await deleteByField(
-      "line_items",
-      "shopify",
-      "id",
-      lineItems.map(({ id }) => id)
-    );
-    console.log("line_items 挿入するよ");
-    await insertRecords(
-      "line_items",
-      "shopify",
-      [
+      console.log("line_items records:", lineItems.length);
+      console.log("line_items 消すよ");
+      await deleteByField(
+        "line_items",
+        "shopify",
         "id",
-        "name",
-        "order_id",
-        "variant_id",
-        "product_id",
-        "quantity",
-        "original_total_price",
-        "tax_price",
-        "without_tax_total_price",
-        "delivery_schedule",
-        "skus",
-      ],
-      lineItems
-    );
-    lineItems = [];
+        lineItems.map(({ id }) => id)
+      );
+      console.log("line_items 挿入するよ");
+      await insertRecords(
+        "line_items",
+        "shopify",
+        [
+          "id",
+          "name",
+          "order_id",
+          "variant_id",
+          "product_id",
+          "quantity",
+          "original_total_price",
+          "tax_price",
+          "without_tax_total_price",
+          "delivery_schedule",
+          "skus",
+        ],
+        lineItems
+      );
+      lineItems = [];
+    }
 
     if (hasNext) {
       console.log("has next cursor: ", cursor, `(Graphql query: ${query})`);
-      await sleep(0.5);
+      await sleep(5);
     }
   }
 };
