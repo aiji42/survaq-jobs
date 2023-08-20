@@ -1486,7 +1486,7 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
     lineItems = [];
 
     if (hasNext) {
-      console.log("has next cursor: ", cursor);
+      console.log("has next cursor: ", cursor, `(Graphql query: ${query})`);
       await sleep(0.5);
     }
   }
