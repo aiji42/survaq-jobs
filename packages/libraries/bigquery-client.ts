@@ -195,21 +195,6 @@ export const getLatestTimeAt = async (
   return latest.replace(/\.\d{3}Z$/, "Z");
 };
 
-// TODO: 消すよ
-export const getCreatedAtForReFetchOrders = async (): Promise<
-  string | null
-> => {
-  const [res] = await client.query({
-    query: `SELECT created_at FROM shopify.orders
-            WHERE without_tax_total_price IS NULL
-            ORDER BY created_at ASC LIMIT 1;`,
-  });
-  if (res.length < 1) return null;
-
-  const latest = res[0]["created_at"].value;
-  return latest.replace(/\.\d{3}Z$/, "Z");
-};
-
 export const getFundingsByProductGroup = async (): Promise<
   { totalPrice: number; supporters: number; productGroupId: string }[]
 > => {
