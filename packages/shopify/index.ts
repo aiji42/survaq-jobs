@@ -408,11 +408,11 @@ type LineItemNode = {
   quantity: number;
   originalTotalSet: ShopMoney;
   taxLines: TaxLine[];
-  variant: {
+  variant?: {
     id: string;
     title: string;
   } | null;
-  product: {
+  product?: {
     id: string;
   };
   customAttributes: {
@@ -426,7 +426,7 @@ type LineItemRecord = Omit<
   "originalTotalSet" | "variant" | "product" | "customAttributes" | "taxLines"
 > & {
   order_id: string;
-  product_id: string;
+  product_id: string | null;
   variant_id: string | null;
   original_total_price: number;
   tax_price: number;
@@ -514,7 +514,7 @@ type CustomVisit = {
 type OderSkuRecord = {
   code: string;
   order_id: string;
-  product_id: string;
+  product_id: string | null;
   variant_id: string | null;
   line_item_id: string;
   ordered_at: string;
@@ -591,7 +591,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           return {
             ...item,
             order_id: node.id,
-            product_id: item.product.id,
+            product_id: item.product?.id ?? null,
             variant_id: item.variant?.id ?? null,
             original_total_price: Number(
               item.originalTotalSet.shopMoney.amount
@@ -723,7 +723,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           return Object.entries(quantityBySku).map(([sku, qty]) => ({
             code: sku,
             order_id: node.id,
-            product_id: item.product.id,
+            product_id: item.product?.id ?? null,
             variant_id: item.variant?.id ?? null,
             line_item_id: item.id,
             ordered_at: node.created_at ?? new Date().toISOString(),
@@ -1343,7 +1343,7 @@ export const ordersAndLineItemsReFetchForTax = async (): Promise<void> => {
           return {
             ...item,
             order_id: node.id,
-            product_id: item.product.id,
+            product_id: item.product?.id ?? null,
             variant_id: item.variant?.id ?? null,
             original_total_price: Number(
               item.originalTotalSet.shopMoney.amount
