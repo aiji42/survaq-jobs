@@ -10,7 +10,7 @@ export const updateDailyBudget = async (setId: string, newBudget: number) => {
   }
 
   const res = await fetch(
-    `https://graph.facebook.com/v14.0/${setId}?daily_budget=${newBudget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
+    `https://graph.facebook.com/v17.0/${setId}?daily_budget=${newBudget}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`,
     {
       method: "POST",
     }
@@ -25,7 +25,7 @@ export const fetchAdSetInfo = async (
   setId: string
 ): Promise<{ name: string; daily_budget: string; id: string }> => {
   const res = await fetch(
-    `https://graph.facebook.com/v14.0/${setId}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
+    `https://graph.facebook.com/v17.0/${setId}?fields=name,daily_budget&access_token=${FACEBOOK_GRAPH_API_TOKEN}`
   );
   if (!res.ok) {
     console.error("Failed fetch ad set info", setId);

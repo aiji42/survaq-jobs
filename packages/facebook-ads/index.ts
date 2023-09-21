@@ -192,7 +192,7 @@ const getAdSetReportRecords = async (
   businessAccountId: string
 ): Promise<AdSetReportRecord[] | never> => {
   const records: AdSetReportRecord[] = [];
-  let next = `https://graph.facebook.com/v15.0/${businessAccountId}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
+  let next = `https://graph.facebook.com/v17.0/${businessAccountId}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
   while (next) {
     const res = await fetch(next).then((res) => {
       if (!res.ok) {
@@ -307,7 +307,7 @@ const getAdReportRecords = async (
   adAccountId: string
 ): Promise<AdReportRecord[] | never> => {
   const records: AdReportRecord[] = [];
-  let next = `https://graph.facebook.com/v15.0/${adAccountId}/ads?fields=id,name,adset_id,account_id,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
+  let next = `https://graph.facebook.com/v17.0/${adAccountId}/ads?fields=id,name,adset_id,account_id,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
   while (next) {
     const res = await fetch(next).then((res) => {
       if (!res.ok) {
