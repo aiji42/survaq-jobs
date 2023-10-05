@@ -19,6 +19,6 @@
     "@survaq-jobs/libraries": "*",
     "dayjs": "^1.11.10",
     "dotenv": "^16.3.1",
-    "facebook-nodejs-business-sdk": "^16.0.1"
+    "facebook-nodejs-business-sdk": "^18.0.1"
   }
 }
