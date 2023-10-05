@@ -130,7 +130,8 @@ export const adReports = async (): Promise<void> => {
   const adRecords = resAdReportRecord.flat();
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
-    for (const records of sliceByNumber(adRecords, 200)) {
+    let processedCount = 0;
+    for (const records of sliceByNumber(adRecords, 100)) {
       await deleteByField(
         "ad_atoms",
         "facebook",
@@ -162,6 +163,8 @@ export const adReports = async (): Promise<void> => {
         ],
         records
       );
+      processedCount += records.length;
+      console.log("inserted:", `${processedCount}/${adRecords.length}`);
     }
   }
 };
