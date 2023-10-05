@@ -4,23 +4,24 @@
   "main": "index.ts",
   "license": "MIT",
   "scripts": {
-    "db:pull": "prisma db pull"
+    "db:pull": "prisma db pull",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@tsconfig/node18": "^1.0.1",
-    "@types/node": "^18.15.5",
+    "@tsconfig/node18": "^18.2.2",
+    "@types/node": "^20.8.2",
     "@types/sqlstring": "^2.3.0",
-    "dotenv": "^16.0.3",
-    "prisma": "^4.11.0",
-    "typescript": "^4.9.4"
+    "dotenv": "^16.3.1",
+    "prisma": "^5.4.1",
+    "typescript": "^5.2.2"
   },
   "peerDependencies": {
     "dotenv": ">=16.0.0"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^6.2.0",
-    "@prisma/client": "^4.11.0",
-    "@slack/web-api": "^6.8.1",
+    "@prisma/client": "^5.4.1",
+    "@slack/web-api": "^6.9.0",
     "sqlstring": "^2.3.3"
   }
 }
