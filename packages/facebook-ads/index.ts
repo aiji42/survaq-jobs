@@ -4,6 +4,7 @@ import {
   deleteByField,
   sliceByNumber,
   range,
+  sleep,
 } from "@survaq-jobs/libraries";
 import { config } from "dotenv";
 config();
@@ -68,19 +69,19 @@ const {
 
 export const adReports = async (): Promise<void> => {
   const days = (REPORT_DAY_RANGE.split("-") as [string, string]).map(
-    Number
+    Number,
   ) as [number, number];
   const inspectDates = range(...days).map((d) =>
-    dayjs().subtract(d, "day").format("YYYY-MM-DD")
+    dayjs().subtract(d, "day").format("YYYY-MM-DD"),
   );
   let resAdSetReportRecord: AdSetReportRecord[][] = [];
   for (let businessAccountId of FACEBOOK_BUSINESS_ACCOUNT_IDS.split("|")) {
     resAdSetReportRecord = resAdSetReportRecord.concat(
       await Promise.all(
         inspectDates.map((inspectDate) =>
-          getAdSetReportRecords(inspectDate, businessAccountId)
-        )
-      )
+          getAdSetReportRecords(inspectDate, businessAccountId),
+        ),
+      ),
     );
   }
 
@@ -91,7 +92,7 @@ export const adReports = async (): Promise<void> => {
       "ads",
       "facebook",
       "id",
-      adSetRecords.map(({ id }) => id)
+      adSetRecords.map(({ id }) => id),
     );
     await insertRecords(
       "ads",
@@ -116,7 +117,7 @@ export const adReports = async (): Promise<void> => {
         "cpp",
         "cpa",
       ],
-      adSetRecords
+      adSetRecords,
     );
   }
   const accountIds = [
@@ -125,19 +126,21 @@ export const adReports = async (): Promise<void> => {
   const resAdReportRecord = await Promise.all<AdReportRecord[]>(
     accountIds.flatMap((id) => {
       return inspectDates.map((date) => getAdReportRecords(date, id));
-    })
+    }),
   );
   const adRecords = resAdReportRecord.flat();
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
     let processedCount = 0;
     for (const records of sliceByNumber(adRecords, 100)) {
+      processedCount += records.length;
       await deleteByField(
         "ad_atoms",
         "facebook",
         "id",
-        records.map(({ id }) => id)
+        records.map(({ id }) => id),
       );
+      console.log("deleted:", `${processedCount}/${adRecords.length}`);
       await insertRecords(
         "ad_atoms",
         "facebook",
@@ -161,10 +164,10 @@ export const adReports = async (): Promise<void> => {
           "cpp",
           "cpa",
         ],
-        records
+        records,
       );
-      processedCount += records.length;
       console.log("inserted:", `${processedCount}/${adRecords.length}`);
+      await sleep(3);
     }
   }
 };
@@ -192,7 +195,7 @@ type AdSetReportRecord = {
 
 const getAdSetReportRecords = async (
   inspectDate: string,
-  businessAccountId: string
+  businessAccountId: string,
 ): Promise<AdSetReportRecord[] | never> => {
   const records: AdSetReportRecord[] = [];
   let next = `https://graph.facebook.com/v17.0/${businessAccountId}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
@@ -245,13 +248,13 @@ const getAdSetReportRecords = async (
               clicks: Number(inline_link_clicks ?? 0),
               conversions: Number(
                 actions?.find(
-                  ({ action_type }) => action_type === "omni_purchase"
-                )?.value || 0
+                  ({ action_type }) => action_type === "omni_purchase",
+                )?.value || 0,
               ),
               return: Number(
                 action_values?.find(
-                  ({ action_type }) => action_type === "omni_purchase"
-                )?.value || 0
+                  ({ action_type }) => action_type === "omni_purchase",
+                )?.value || 0,
               ),
               date,
               datetime: `${date}T00:00:00`,
@@ -261,11 +264,11 @@ const getAdSetReportRecords = async (
               cpp: Number(cpp ?? 0),
               cpa: Number(
                 cost_per_action_type?.find(
-                  ({ action_type }) => action_type === "omni_purchase"
-                )?.value || 0
+                  ({ action_type }) => action_type === "omni_purchase",
+                )?.value || 0,
               ),
             });
-          }
+          },
         );
       });
     });
@@ -307,7 +310,7 @@ type AdReportRecord = {
 
 const getAdReportRecords = async (
   inspectDate: string,
-  adAccountId: string
+  adAccountId: string,
 ): Promise<AdReportRecord[] | never> => {
   const records: AdReportRecord[] = [];
   let next = `https://graph.facebook.com/v17.0/${adAccountId}/ads?fields=id,name,adset_id,account_id,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
@@ -354,13 +357,13 @@ const getAdReportRecords = async (
             clicks: Number(inline_link_clicks ?? 0),
             conversions: Number(
               actions?.find(
-                ({ action_type }) => action_type === "omni_purchase"
-              )?.value || 0
+                ({ action_type }) => action_type === "omni_purchase",
+              )?.value || 0,
             ),
             return: Number(
               action_values?.find(
-                ({ action_type }) => action_type === "omni_purchase"
-              )?.value || 0
+                ({ action_type }) => action_type === "omni_purchase",
+              )?.value || 0,
             ),
             date,
             datetime: `${date}T00:00:00`,
@@ -370,11 +373,11 @@ const getAdReportRecords = async (
             cpp: Number(cpp ?? 0),
             cpa: Number(
               cost_per_action_type?.find(
-                ({ action_type }) => action_type === "omni_purchase"
-              )?.value || 0
+                ({ action_type }) => action_type === "omni_purchase",
+              )?.value || 0,
             ),
           });
-        }
+        },
       );
     });
   }
