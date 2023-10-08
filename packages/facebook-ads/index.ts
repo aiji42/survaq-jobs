@@ -141,6 +141,7 @@ export const adReports = async (): Promise<void> => {
         records.map(({ id }) => id),
       );
       console.log("deleted:", `${processedCount}/${adRecords.length}`);
+      await sleep(5);
       await insertRecords(
         "ad_atoms",
         "facebook",
