@@ -7,7 +7,8 @@ config();
 const { BIGQUERY_CREDENTIALS, NODE_ENV, DRY_RUN } = process.env;
 
 const credentials = JSON.parse(
-  BIGQUERY_CREDENTIALS ?? '{"client_email":"","private_key":"","project_id":""}'
+  BIGQUERY_CREDENTIALS ??
+    '{"client_email":"","private_key":"","project_id":""}',
 ) as { client_email: string; private_key: string; project_id: "" };
 
 export const client = new BigQuery(
@@ -16,11 +17,11 @@ export const client = new BigQuery(
     : {
         credentials,
         projectId: credentials.project_id,
-      }
+      },
 );
 
 export const getRecords = async <
-  T extends Record<string, unknown> = Record<string, any>
+  T extends Record<string, unknown> = Record<string, any>,
 >(
   table: string,
   dataset: string,
@@ -28,7 +29,7 @@ export const getRecords = async <
   conditions: Record<
     string,
     string | { value: string; operator: string } | string[]
-  >
+  >,
 ): Promise<T[]> => {
   const [queries, values] = Object.entries(conditions).reduce<
     [Array<string>, Array<string | string[]>]
@@ -52,14 +53,14 @@ export const getRecords = async <
         [...values, right.value],
       ];
     },
-    [[], []]
+    [[], []],
   );
 
   const [res] = await client.query({
     query: sql.format(
       `SELECT ${columns.join(",")} FROM ${dataset}.${table}
             WHERE ${queries.join(" AND ")};`,
-      values
+      values,
     ),
   });
 
@@ -71,7 +72,7 @@ export const updateRecords = async (
   dataset: string,
   data: Record<string, any>,
   whereField: string,
-  whereValue: string | string[]
+  whereValue: string | string[],
 ) => {
   const query = makeUpdateQuery(table, dataset, data, whereField, whereValue);
   if (DRY_RUN) {
@@ -89,7 +90,7 @@ const makeUpdateQuery = (
   dataset: string,
   data: Record<string, any>,
   whereField: string,
-  whereValue: string | string[]
+  whereValue: string | string[],
 ) => {
   return sql.format(
     `
@@ -98,17 +99,18 @@ const makeUpdateQuery = (
       .join(", ")}
     WHERE ${whereField} ${Array.isArray(whereValue) ? "IN (?)" : "= ?"}
     `,
-    [...Object.values(data), whereValue]
+    [...Object.values(data), whereValue],
   );
 };
 
 export const insertRecords = async <
-  T extends Record<string, string | number | boolean | null>
+  T extends Record<string, string | number | boolean | null>,
 >(
   table: string,
   dataset: string,
   columns: Array<keyof T>,
-  data: T[]
+  data: T[],
+  printLog = false,
 ) => {
   const query = makeInsertQuery(table, dataset, columns as string[], data);
   if (DRY_RUN) {
@@ -120,6 +122,7 @@ export const insertRecords = async <
     }
     console.log(query);
   } else {
+    if (printLog) console.log(query);
     await client.query({
       query,
     });
@@ -130,14 +133,14 @@ const makeInsertQuery = (
   table: string,
   dataset: string,
   columns: string[],
-  data: Record<string, string | number | boolean | null>[]
+  data: Record<string, string | number | boolean | null>[],
 ) => {
   return sql.format(
     `
     INSERT INTO ${dataset}.${table} (${columns.join(",")})
     VALUES ?
     `,
-    [data.map((record) => columns.map((col) => record[col]))]
+    [data.map((record) => columns.map((col) => record[col]))],
   );
 };
 
@@ -145,7 +148,7 @@ export const deleteByField = async (
   table: string,
   dataset: string,
   field: string,
-  values: (string | number)[] | string | number
+  values: (string | number)[] | string | number,
 ) => {
   if (DRY_RUN) {
     console.log("DRY RUN: delete record by", field, "from", dataset, table);
@@ -158,13 +161,13 @@ export const deleteByField = async (
           `
     DELETE FROM ${dataset}.${table} WHERE ${field} IN (?);
     `,
-          [values]
+          [values],
         )
       : sql.format(
           `
     DELETE FROM ${dataset}.${table} WHERE ${field} = ?;
     `,
-          [values]
+          [values],
         ),
   });
 };
@@ -183,7 +186,7 @@ export const truncateTable = async (table: string, dataset: string) => {
 export const getLatestTimeAt = async (
   table: string,
   dataset: string,
-  column: string
+  column: string,
 ): Promise<string> => {
   const [res] = await client.query({
     query: `SELECT ${column} FROM ${dataset}.${table}
