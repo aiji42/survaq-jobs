@@ -131,17 +131,13 @@ export const adReports = async (): Promise<void> => {
   const adRecords = resAdReportRecord.flat();
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
-    let processedCount = 0;
-    for (const records of sliceByNumber(adRecords, 100)) {
-      processedCount += records.length;
+    for (const records of sliceByNumber(adRecords, 200)) {
       await deleteByField(
         "ad_atoms",
         "facebook",
         "id",
         records.map(({ id }) => id),
       );
-      console.log("deleted:", `${processedCount}/${adRecords.length}`);
-      await sleep(8);
       await insertRecords(
         "ad_atoms",
         "facebook",
@@ -166,9 +162,7 @@ export const adReports = async (): Promise<void> => {
           "cpa",
         ],
         records,
-        true,
       );
-      console.log("inserted:", `${processedCount}/${adRecords.length}`);
     }
   }
 };
@@ -352,9 +346,9 @@ const getAdReportRecords = async (
             account_id,
             set_id: adset_id,
             ad_id: id,
-            impressions: Number(impressions),
-            spend: Number(spend),
-            reach: Number(reach),
+            impressions: Number(impressions ?? 0),
+            spend: Number(spend ?? 0),
+            reach: Number(reach ?? 0),
             clicks: Number(inline_link_clicks ?? 0),
             conversions: Number(
               actions?.find(
