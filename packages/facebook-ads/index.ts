@@ -166,6 +166,7 @@ export const adReports = async (): Promise<void> => {
           "cpa",
         ],
         records,
+        true,
       );
       console.log("inserted:", `${processedCount}/${adRecords.length}`);
     }
