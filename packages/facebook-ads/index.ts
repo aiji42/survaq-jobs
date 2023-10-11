@@ -4,7 +4,6 @@ import {
   deleteByField,
   sliceByNumber,
   range,
-  sleep,
 } from "@survaq-jobs/libraries";
 import { config } from "dotenv";
 config();
@@ -20,9 +19,9 @@ type Paging = {
 
 type AdInsights = {
   data: {
-    impressions: string;
-    spend: string;
-    reach: string;
+    impressions?: string;
+    spend?: string;
+    reach?: string;
     inline_link_clicks?: string;
     actions?: { action_type: string; value: string }[];
     action_values?: { action_type: string; value: string }[];
@@ -237,9 +236,9 @@ const getAdSetReportRecords = async (
               account_name: accountName,
               set_id: setId,
               set_name: setName,
-              impressions: Number(impressions),
-              spend: Number(spend),
-              reach: Number(reach),
+              impressions: Number(impressions ?? 0),
+              spend: Number(spend ?? 0),
+              reach: Number(reach ?? 0),
               clicks: Number(inline_link_clicks ?? 0),
               conversions: Number(
                 actions?.find(
