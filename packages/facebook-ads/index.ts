@@ -4,6 +4,7 @@ import {
   deleteByField,
   sliceByNumber,
   range,
+  limitAsyncMap,
 } from "@survaq-jobs/libraries";
 import { config } from "dotenv";
 config();
@@ -73,18 +74,19 @@ export const adReports = async (): Promise<void> => {
   const inspectDates = range(...days).map((d) =>
     dayjs().subtract(d, "day").format("YYYY-MM-DD"),
   );
-  let resAdSetReportRecord: AdSetReportRecord[][] = [];
-  for (let businessAccountId of FACEBOOK_BUSINESS_ACCOUNT_IDS.split("|")) {
-    resAdSetReportRecord = resAdSetReportRecord.concat(
-      await Promise.all(
-        inspectDates.map((inspectDate) =>
-          getAdSetReportRecords(inspectDate, businessAccountId),
-        ),
-      ),
-    );
-  }
-
-  const adSetRecords = resAdSetReportRecord.flat();
+  const params = FACEBOOK_BUSINESS_ACCOUNT_IDS.split("|").flatMap(
+    (businessAccountId) =>
+      inspectDates.map((inspectDate) => ({ businessAccountId, inspectDate })),
+  );
+  const adSetRecords = (
+    await limitAsyncMap(
+      params,
+      ({ inspectDate, businessAccountId }) =>
+        getAdSetReportRecords(inspectDate, businessAccountId),
+      5,
+      3,
+    )
+  ).flat();
   console.log("adSetRecords: ", adSetRecords.length);
   if (adSetRecords.length > 0) {
     await deleteByField(
@@ -122,12 +124,17 @@ export const adReports = async (): Promise<void> => {
   const accountIds = [
     ...new Set(adSetRecords.map(({ account_id }) => account_id)),
   ];
-  const resAdReportRecord = await Promise.all<AdReportRecord[]>(
-    accountIds.flatMap((id) => {
-      return inspectDates.map((date) => getAdReportRecords(date, id));
-    }),
-  );
-  const adRecords = resAdReportRecord.flat();
+  const adRecords = (
+    await limitAsyncMap(
+      accountIds.flatMap((accountId) =>
+        inspectDates.map((inspectDate) => ({ accountId, inspectDate })),
+      ),
+      ({ accountId, inspectDate }) =>
+        getAdReportRecords(inspectDate, accountId),
+      10,
+      3,
+    )
+  ).flat();
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
     for (const records of sliceByNumber(adRecords, 200)) {
