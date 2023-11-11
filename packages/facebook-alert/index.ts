@@ -6,6 +6,7 @@ import {
   postMessage,
   sleep,
   MessageAttachment,
+  limitAsyncMap,
 } from "@survaq-jobs/libraries";
 import { config } from "dotenv";
 import * as adsSdk from "facebook-nodejs-business-sdk";
@@ -33,7 +34,7 @@ const facebookAdSetLink = ({
 }) =>
   `https://business.facebook.com/adsmanager/manage/ads?act=${accountId.replace(
     "act_",
-    ""
+    "",
   )}&selected_adset_ids=${setId}`;
 
 const cmsFacebookAdAlertsContentLink = ({ id }: { id: string }) =>
@@ -53,9 +54,9 @@ const main = async () => {
     ...new Set(
       filteredAlerts.flatMap(({ FacebookAdAlerts_FacebookAdSets }) =>
         FacebookAdAlerts_FacebookAdSets.flatMap(({ FacebookAdSets }) =>
-          !FacebookAdSets ? [] : FacebookAdSets.setId
-        )
-      )
+          !FacebookAdSets ? [] : FacebookAdSets.setId,
+        ),
+      ),
     ),
   ];
 
@@ -74,47 +75,60 @@ const main = async () => {
     {
       date: dayjs().add(-1, "day").format("YYYY-MM-DD"),
       set_id: setIds,
-    }
+    },
   );
   const lastWeekRecords = await getRecords<BQRecord>(
     "calc_for_roas",
     "facebook",
 
     columns,
-    { date: dayjs().add(-7, "day").format("YYYY-MM-DD"), set_id: setIds }
+    { date: dayjs().add(-7, "day").format("YYYY-MM-DD"), set_id: setIds },
   );
   const lastMonthRecords = await getRecords<BQRecord>(
     "calc_for_roas",
     "facebook",
 
     columns,
-    { date: dayjs().add(-31, "day").format("YYYY-MM-DD"), set_id: setIds }
+    { date: dayjs().add(-31, "day").format("YYYY-MM-DD"), set_id: setIds },
   );
 
-  const daysSinceLastCreateSetId: Record<string, number> = {};
-  for (const setId of setIds) {
-    const adSetApiObj = new adsSdk.AdSet(setId);
+  const daysSinceLastCreateSetId = Object.fromEntries(
+    await limitAsyncMap(
+      setIds,
+      async (setId) => {
+        const adSetApiObj = new adsSdk.AdSet(setId);
 
-    console.log("fetch ads: ", setId);
-    const ads = await adSetApiObj.getAds(["created_time", "status"]);
+        console.log("fetch ads: ", setId);
+        const ads = await adSetApiObj.getAds(["created_time", "status"]);
 
-    const lastCreatedAt = ads.reduce<null | string>((res, ad) => {
-      if (ad["status"] !== "ACTIVE") return res;
-      if (!res) return ad["created_time"];
-      return res > ad["created_time"] ? res : ad["created_time"];
-    }, null);
-    if (!lastCreatedAt) continue;
-    daysSinceLastCreateSetId[setId] = Math.abs(
-      dayjs(lastCreatedAt).diff(dayjs(), "day")
-    );
-  }
+        const lastCreatedAt = ads.reduce<null | string>((res, ad) => {
+          if (ad["status"] !== "ACTIVE") return res;
+          if (!res) return ad["created_time"];
+          return res > ad["created_time"] ? res : ad["created_time"];
+        }, null);
 
-  const dailyBudgetSetId: Record<string, number> = {};
-  for (const setId of setIds) {
-    console.log("fetch budget: ", setId);
-    const { daily_budget } = await fetchAdSetInfo(setId);
-    dailyBudgetSetId[setId] = Number(daily_budget);
-  }
+        if (!lastCreatedAt) return [];
+
+        return [setId, Math.abs(dayjs(lastCreatedAt).diff(dayjs(), "day"))];
+      },
+      1,
+      3,
+    ),
+  );
+
+  const dailyBudgetSetId = Object.fromEntries(
+    await limitAsyncMap(
+      setIds,
+      async (setId) => {
+        console.log("fetch budget: ", setId);
+        const { daily_budget } = await fetchAdSetInfo(setId);
+
+        return [setId, Number(daily_budget)];
+      },
+      1,
+      3,
+    ),
+  );
 
   const dataBySetId = Object.fromEntries(
     currentWeekRecords.map(
@@ -128,7 +142,7 @@ const main = async () => {
         const roas = return_1week_sum / spend_1week_sum;
         const cpc = spend_1week_sum / clicks_1week_sum;
         const lastWeek = lastWeekRecords.find(
-          (lastWeek) => set_id === lastWeek.set_id
+          (lastWeek) => set_id === lastWeek.set_id,
         );
         const cpcLastWeek = lastWeek
           ? lastWeek.spend_1week_sum / lastWeek.clicks_1week_sum
@@ -137,7 +151,7 @@ const main = async () => {
           ? lastWeek.return_1week_sum / lastWeek.spend_1week_sum
           : null;
         const lastMonth = lastMonthRecords.find(
-          (lastWeek) => set_id === lastWeek.set_id
+          (lastWeek) => set_id === lastWeek.set_id,
         );
         const cpcLastMonth = lastMonth
           ? lastMonth.spend_1week_sum / lastMonth.clicks_1week_sum
@@ -162,8 +176,8 @@ const main = async () => {
             ctr: clicks_1week_sum / impressions_1week_sum,
           },
         ];
-      }
-    )
+      },
+    ),
   );
 
   for (const alert of filteredAlerts) {
@@ -233,7 +247,7 @@ const main = async () => {
             }
 
             return false;
-          }
+          },
         );
         if (matched) {
           const adSetData = dataBySetId[adSet.setId]!;
@@ -253,7 +267,7 @@ const main = async () => {
                   ? {
                       title: "ROAS変動比(先週比)",
                       value: `${adSetData.roasChangeRateWeekly.toFixed(
-                        2
+                        2,
                       )} (${adSetData.roas.toFixed(2)} / ${
                         adSetData.roasLastWeek?.toFixed(2) ?? "-"
                       })`,
@@ -262,7 +276,7 @@ const main = async () => {
                   ? {
                       title: "ROAS変動比(先月比)",
                       value: `${adSetData.roasChangeRateMonthly.toFixed(
-                        2
+                        2,
                       )} (${adSetData.roas.toFixed(2)} / ${
                         adSetData.roasLastMonth?.toFixed(2) ?? "-"
                       })`,
@@ -276,7 +290,7 @@ const main = async () => {
                   ? {
                       title: "CPC変動比(先週比)",
                       value: `${adSetData.cpcChangeRateWeekly.toFixed(
-                        2
+                        2,
                       )} (${adSetData.cpc.toFixed(2)} / ${
                         adSetData.cpcLastWeek?.toFixed(2) ?? "-"
                       })`,
@@ -285,7 +299,7 @@ const main = async () => {
                   ? {
                       title: "CPC変動比(先月比)",
                       value: `${adSetData.cpcChangeRateMonthly.toFixed(
-                        2
+                        2,
                       )} (${adSetData.cpc.toFixed(2)} / ${
                         adSetData.cpcLastMonth?.toFixed(2) ?? "-"
                       })`,
@@ -314,12 +328,12 @@ const main = async () => {
               }))
               .filter(
                 (
-                  field
+                  field,
                 ): field is {
                   title: string;
                   value: string;
                   short: boolean;
-                } => !!field.title && !!field.value
+                } => !!field.title && !!field.value,
               ),
           });
 
@@ -331,7 +345,7 @@ const main = async () => {
       await postMessage(
         alert.channel,
         `*🔔 <${cmsFacebookAdAlertsContentLink(alert)}|${alert.title}>*\n`,
-        slackAttachments
+        slackAttachments,
       );
       await sleep(5);
     }
