@@ -6,6 +6,7 @@ import {
   updateDailyBudget,
   fetchAdSetInfo,
   FacebookAdsBudgetStrategy,
+  limitAsyncMap,
 } from "@survaq-jobs/libraries";
 import dayjs from "dayjs";
 
@@ -25,21 +26,29 @@ const main = async () => {
               accountName: FacebookAdSets.accountName,
               setName: FacebookAdSets.setName,
               setId: FacebookAdSets.setId,
-            }
-      )
+            },
+      ),
   );
   console.log(
     "Find",
     plans.length,
     "plans with",
     flattenPlans.length,
-    "ad sets"
+    "ad sets",
   );
 
   console.log("Reference date:", referenceDate.format("YYYY-MM-DD"));
 
-  const processed = [];
-  for (const plan of flattenPlans) {
+  const handelPlan = async (plan: {
+    accountId: string;
+    accountName: string;
+    setName: string;
+    setId: string;
+    strategy: any;
+    active: boolean | null;
+    intervalDays: number;
+    title: string;
+  }) => {
     const [record] = await getRecords<{
       return_1week_sum: number;
       spend_1week_sum: number;
@@ -51,9 +60,9 @@ const main = async () => {
       console.log(
         "Skip since the budget was not found on BigQuery:",
         plan.setId,
-        plan.setName
+        plan.setName,
       );
-      continue;
+      return;
     }
 
     const updated = await getRecords("budget_histories", "facebook", ["date"], {
@@ -67,10 +76,10 @@ const main = async () => {
       console.log(
         `Skip process since it has been less than ${plan.intervalDays} days since the last`,
         plan.setId,
-        plan.setName
+        plan.setName,
       );
       await sleep(0.5);
-      continue;
+      return;
     }
 
     const roas = record.return_1week_sum / record.spend_1week_sum;
@@ -78,15 +87,15 @@ const main = async () => {
       (plan.strategy as FacebookAdsBudgetStrategy).find(
         ({ beginRoas, endRoas }) => {
           return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
-        }
+        },
       ) ?? {};
     if (!ratio) {
       console.log(
         "Skip since the strategy was not found:",
         plan.setId,
-        plan.setName
+        plan.setName,
       );
-      continue;
+      return;
     }
 
     const { daily_budget: currentBudget } = await fetchAdSetInfo(plan.setId);
@@ -110,7 +119,7 @@ const main = async () => {
         "Updated budget",
         updatePlan.before_budget < updatePlan.after_budget ? "↗️" : "↘️",
         plan.setId,
-        plan.setName
+        plan.setName,
       );
     } else {
       console.log("Keep budget", plan.setId, plan.setName);
@@ -129,13 +138,14 @@ const main = async () => {
         "after_budget",
         "change_ratio",
       ],
-      [updatePlan]
+      [updatePlan],
     );
+    return updatePlan;
+  };
 
-    processed.push(updatePlan);
-
-    await sleep(0.5);
-  }
+  const processed = (
+    await limitAsyncMap(flattenPlans, handelPlan, 2, 3)
+  ).filter((done) => !!done);
 
   if (processed.length > 0) console.table(processed);
 };
