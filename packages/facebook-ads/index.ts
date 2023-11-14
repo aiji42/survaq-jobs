@@ -83,8 +83,7 @@ export const adReports = async (): Promise<void> => {
       params,
       ({ inspectDate, businessAccountId }) =>
         getAdSetReportRecords(inspectDate, businessAccountId),
-      5,
-      3,
+      { concurrency: 5, retryable: 3 },
     )
   ).flat();
   console.log("adSetRecords: ", adSetRecords.length);
@@ -131,8 +130,7 @@ export const adReports = async (): Promise<void> => {
       ),
       ({ accountId, inspectDate }) =>
         getAdReportRecords(inspectDate, accountId),
-      10,
-      3,
+      { concurrency: 10, retryable: 3 },
     )
   ).flat();
   console.log("adRecords: ", adRecords.length);

@@ -144,7 +144,10 @@ const main = async () => {
   };
 
   const processed = (
-    await limitAsyncMap(flattenPlans, handelPlan, 2, 3)
+    await limitAsyncMap(flattenPlans, handelPlan, {
+      concurrency: 2,
+      retryable: 3,
+    })
   ).filter((done) => !!done);
 
   if (processed.length > 0) console.table(processed);

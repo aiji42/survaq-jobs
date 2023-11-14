@@ -111,8 +111,8 @@ const main = async () => {
 
         return [setId, Math.abs(dayjs(lastCreatedAt).diff(dayjs(), "day"))];
       },
-      1,
-      3,
+
+      { concurrency: 1, retryable: 3, retryIntervalSec: 60 },
     ),
   );
 
@@ -125,8 +125,7 @@ const main = async () => {
 
         return [setId, Number(daily_budget)];
       },
-      1,
-      3,
+      { concurrency: 1, retryable: 3 },
     ),
   );
 

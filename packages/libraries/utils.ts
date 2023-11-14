@@ -18,8 +18,15 @@ export const range = (start: number, end: number) =>
 export const limitAsyncMap = async <T, R>(
   params: T[],
   callback: (p: T) => Promise<R>,
-  concurrency: number,
-  retryable: number,
+  {
+    concurrency = 1,
+    retryable = 3,
+    retryIntervalSec = 10,
+  }: {
+    concurrency?: number;
+    retryable?: number;
+    retryIntervalSec?: number;
+  },
 ): Promise<R[]> => {
   if (retryable === 0) throw new Error("Max retry attempts reached");
 
@@ -29,11 +36,19 @@ export const limitAsyncMap = async <T, R>(
 
   if (errors.length === 0) return results;
 
+  console.log("Failed", errors.length, "items");
+  console.log("Waiting", retryIntervalSec, "sec for next retry time");
+  await sleep(retryIntervalSec);
+  console.log("Retry!");
+
   const retried = await limitAsyncMap(
     errors.map(({ item }) => item),
     callback,
-    concurrency,
-    retryable - 1,
+    {
+      concurrency,
+      retryable: retryable - 1,
+      retryIntervalSec,
+    },
   );
 
   return results.concat(retried);
