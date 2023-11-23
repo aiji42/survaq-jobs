@@ -218,24 +218,45 @@ const getAdSetReportRecords = async (
     const adAccount =
       "owned_ad_accounts" in res ? res.owned_ad_accounts.data : res.data;
 
-    adAccount.forEach(({ id: accountId, name: accountName, adsets }) => {
-      adsets?.data.forEach(({ id: setId, name: setName, insights }) => {
-        insights?.data.forEach(
-          ({
-            impressions,
-            spend,
-            reach,
-            inline_link_clicks,
-            actions,
-            action_values,
-            date_start: date,
-            inline_link_click_ctr,
-            cost_per_inline_link_click,
-            cpm,
-            cpp,
-            cost_per_action_type,
-          }) => {
-            records.push({
+    for (const { id: accountId, name: accountName, adsets } of adAccount) {
+      if (!adsets) continue;
+      let adsetNext = adsets.paging.next;
+      while (adsetNext) {
+        const res = await fetch(adsetNext).then((res) => {
+          if (!res.ok) {
+            const usage = res.headers.get("x-business-use-case-usage");
+            usage && console.log(JSON.parse(usage));
+          }
+          return res.json() as Promise<AdSet | FbError>;
+        });
+        if ("error" in res) {
+          console.error(res.error);
+          throw new Error(res.error.message);
+        }
+
+        adsets.data.push(...res.data);
+
+        adsetNext = res.paging.next;
+      }
+
+      const _records = adsets.data.flatMap<AdSetReportRecord>(
+        ({ id: setId, name: setName, insights }) => {
+          if (!insights) return [];
+          return insights.data.map(
+            ({
+              impressions,
+              spend,
+              reach,
+              inline_link_clicks,
+              actions,
+              action_values,
+              date_start: date,
+              inline_link_click_ctr,
+              cost_per_inline_link_click,
+              cpm,
+              cpp,
+              cost_per_action_type,
+            }) => ({
               id: `${setId}_${date}`,
               account_id: accountId,
               account_name: accountName,
@@ -266,11 +287,13 @@ const getAdSetReportRecords = async (
                   ({ action_type }) => action_type === "omni_purchase",
                 )?.value || 0,
               ),
-            });
-          },
-        );
-      });
-    });
+            }),
+          );
+        },
+      );
+
+      records.push(..._records);
+    }
   }
   return records;
 };
