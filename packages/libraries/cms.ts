@@ -111,7 +111,33 @@ export const getGoogleMerchantCenter = async () => {
 };
 
 export const getAllSkus = async () => {
-  return prisma.shopifyCustomSKUs.findMany({ take: 1000 });
+  return prisma.shopifyCustomSKUs.findMany({
+    include: {
+      ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs:
+        {
+          where: {
+            ShopifyInventoryOrders: {
+              status: { in: ["waitingShipping", "waitingReceiving"] },
+            },
+          },
+          include: {
+            ShopifyInventoryOrders: true,
+          },
+          orderBy: {
+            ShopifyInventoryOrders: {
+              deliveryDate: "asc",
+            },
+          },
+        },
+      ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs:
+        {
+          include: {
+            ShopifyInventoryOrders: true,
+          },
+        },
+    },
+    take: 1000,
+  });
 };
 
 export const getAllVariationSKUData = async () => {
@@ -141,8 +167,12 @@ export const updateSku = async (
   code: string,
   data: Pick<
     Prisma.ShopifyCustomSKUsUpdateInput,
-    "availableStock" | "lastSyncedAt" | "unshippedOrderCount" | "inventory"
-  >
+    | "availableStock"
+    | "lastSyncedAt"
+    | "unshippedOrderCount"
+    | "inventory"
+    | "ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs"
+  >,
 ) => {
   if (DRY_RUN) {
     console.log("DRY RUN: update ShopifyCustomSKUs code:", code, data);
@@ -156,7 +186,7 @@ export const updateSku = async (
 
 export const updateShopifyProductGroups = async (
   id: number,
-  data: { realTotalPrice: number; realSupporters: number }
+  data: { realTotalPrice: number; realSupporters: number },
 ) => {
   if (DRY_RUN) {
     console.log("DRY RUN: update ShopifyProductGroups id:", id, data);

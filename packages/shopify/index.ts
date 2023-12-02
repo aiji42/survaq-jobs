@@ -24,9 +24,11 @@ import { parse } from "csv-parse/sync";
 import {
   cmsSKULink,
   getCurrentAvailableTotalStockCount,
+  getCurrentAvailableTotalStockCountNew,
   getPendingShipmentCounts,
   getShippedCounts,
   incomingStock,
+  nextAvailableInventoryOrder,
   nextAvailableStock,
   validateStockQty,
 } from "./sku";
@@ -51,8 +53,8 @@ const notifySlackChannel = "#notify-cms";
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${
-  cursor ? `"${cursor}"` : "null"
-}) {
+    cursor ? `"${cursor}"` : "null"
+  }) {
     edges {
       node {
         id
@@ -99,7 +101,7 @@ export const products = async (): Promise<void> => {
         updatedAt,
         productIds: Array.isArray(ShopifyProducts)
           ? ShopifyProducts.map(
-              ({ productId }) => `gid://shopify/Product/${productId}`
+              ({ productId }) => `gid://shopify/Product/${productId}`,
             )
           : [],
       })) ?? [];
@@ -119,7 +121,7 @@ export const products = async (): Promise<void> => {
     data.products.edges.forEach((edge) => {
       cursor = edge.cursor;
       const group = productIdAndGroupMappings.find(({ productIds }) =>
-        productIds.includes(edge.node.id)
+        productIds.includes(edge.node.id),
       );
       products.push({
         ...edge.node,
@@ -152,7 +154,7 @@ export const products = async (): Promise<void> => {
         "productGroupName",
         "syncedAt",
       ],
-      products
+      products,
     );
   }
 
@@ -171,15 +173,15 @@ export const products = async (): Promise<void> => {
         productGroupName: productIdAndGroup.title,
       },
       "id",
-      productIdAndGroup.productIds
+      productIdAndGroup.productIds,
     );
   }
 };
 
 const variantListQuery = (query: string, cursor: null | string) => `{
   productVariants(first: 50, query: "${query}", after: ${
-  cursor ? `"${cursor}"` : "null"
-}) {
+    cursor ? `"${cursor}"` : "null"
+  }) {
     edges {
       node {
         id
@@ -235,7 +237,7 @@ export const variants = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "variants",
     "shopify",
-    "updated_at"
+    "updated_at",
   )}'`;
   console.log("Graphql query: ", query);
   let hasNext = true;
@@ -261,7 +263,7 @@ export const variants = async (): Promise<void> => {
           },
         ];
       },
-      variants
+      variants,
     );
 
     if (hasNext) {
@@ -289,15 +291,15 @@ export const variants = async (): Promise<void> => {
         "created_at",
         "updated_at",
       ],
-      variants
+      variants,
     );
   }
 };
 
 const orderListQuery = (query: string, cursor: null | string) => `{
   orders(first: 10, query: "${query}" after: ${
-  cursor ? `"${cursor}"` : "null"
-}) {
+    cursor ? `"${cursor}"` : "null"
+  }) {
     edges {
       node {
         id
@@ -540,7 +542,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "orders",
     "shopify",
-    "updated_at"
+    "updated_at",
   )}'`;
   console.log("Graphql query: ", query);
 
@@ -585,7 +587,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           customVisitByOrder[node.id] = customVisit;
           if (item.variant?.id)
             variantIds.push(
-              item.variant.id.replace("gid://shopify/ProductVariant/", "")
+              item.variant.id.replace("gid://shopify/ProductVariant/", ""),
             );
           return {
             ...item,
@@ -593,7 +595,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             product_id: item.product?.id ?? null,
             variant_id: item.variant?.id ?? null,
             original_total_price: Number(
-              item.originalTotalSet.shopMoney.amount
+              item.originalTotalSet.shopMoney.amount,
             ),
             tax_price: Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
             without_tax_total_price:
@@ -617,7 +619,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           total_price: Number(node.totalPriceSet.shopMoney.amount),
           subtotal_price: Number(node.subtotalPriceSet.shopMoney.amount),
           total_shopping_price: Number(
-            node.totalShippingPriceSet.shopMoney.amount
+            node.totalShippingPriceSet.shopMoney.amount,
           ),
           without_tax_total_price:
             Number(node.totalPriceSet.shopMoney.amount) -
@@ -661,7 +663,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
       })
     ).reduce<Record<string, string | null>>(
       (res, variant) => ({ ...res, [variant.variantId]: variant.skusJSON }),
-      {}
+      {},
     );
 
     orderSkus = [
@@ -670,7 +672,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
         return node.lineItems.edges.flatMap(({ node: item }) => {
           // 注文発生時に_skusにデータがつけられなかったものために、メモにデータを残して上書きできるようにする
           const skusOnMemo = parseSKUsInMemo(node.note).find(
-            ({ lineItemId }) => lineItemId === item.id
+            ({ lineItemId }) => lineItemId === item.id,
           );
 
           const _skus = skusOnMemo?._skus
@@ -716,7 +718,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             (res, sku) => {
               return { ...res, [sku]: (res[sku] ?? 0) + 1 };
             },
-            {}
+            {},
           );
 
           return Object.entries(quantityBySku).map(([sku, qty]) => ({
@@ -748,7 +750,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
       "orders",
       "shopify",
       "id",
-      items.map(({ id }) => id)
+      items.map(({ id }) => id),
     );
     await insertRecords(
       "orders",
@@ -781,7 +783,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "utm_content",
         "utm_term",
       ],
-      items
+      items,
     );
   }
   for (const items of sliceByNumber(lineItems, 200)) {
@@ -791,7 +793,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
       "line_items",
       "shopify",
       "id",
-      items.map(({ id }) => id)
+      items.map(({ id }) => id),
     );
     await insertRecords(
       "line_items",
@@ -809,7 +811,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "delivery_schedule",
         "skus",
       ],
-      items
+      items,
     );
   }
 
@@ -822,7 +824,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
       "order_skus",
       "shopify",
       "order_id",
-      items.map(({ order_id }) => order_id)
+      items.map(({ order_id }) => order_id),
     );
     await insertRecords(
       "order_skus",
@@ -839,7 +841,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "closed_at",
         "quantity",
       ],
-      items
+      items,
     );
   }
 
@@ -858,12 +860,12 @@ export const ordersAndLineItems = async (): Promise<void> => {
       if (!process.env["DRY_RUN"])
         await shopify.order.update(
           Number(order.id.replace("gid://shopify/Order/", "")),
-          param
+          param,
         );
     }
 
     const needNotifies = Object.values(unConnectedSkuOrders).filter(
-      ({ needAlert }) => needAlert
+      ({ needAlert }) => needAlert,
     );
     if (needNotifies.length)
       await postMessage(
@@ -897,8 +899,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
                 value: display_fulfillment_status,
               },
             ],
-          })
-        )
+          }),
+        ),
       );
   }
 };
@@ -925,7 +927,7 @@ const parseSKUsInMemo = (text: string | null | undefined) => {
 
 const stringifySKUsForMemo = (
   inputText: string,
-  newSkus: Array<{ lineItemId: string; name: string; _skus: string[] }>
+  newSkus: Array<{ lineItemId: string; name: string; _skus: string[] }>,
 ): string => {
   const originalSkus = parseSKUsInMemo(inputText);
 
@@ -946,15 +948,15 @@ const stringifySKUsForMemo = (
 
   const insertableSkus = newSkus.filter(
     (sku) =>
-      !originalSkus.some(({ lineItemId }) => lineItemId === sku.lineItemId)
+      !originalSkus.some(({ lineItemId }) => lineItemId === sku.lineItemId),
   );
 
   const updatedJsonStrings = [...updatedSkus, ...insertableSkus].map((obj) =>
-    JSON.stringify(obj, null, 2)
+    JSON.stringify(obj, null, 2),
   );
   const updatedText = inputText.replace(
     /{[^}]+}/g,
-    () => updatedJsonStrings.shift()!
+    () => updatedJsonStrings.shift()!,
   );
 
   if (insertableSkus.length > 0) {
@@ -974,8 +976,10 @@ export const smartShoppingPerformance = async () => {
   const rows = (
     await Promise.all(
       files.map((file) =>
-        file.download().then(([bff]) => parse(bff.toString(), { from_line: 4 }))
-      )
+        file
+          .download()
+          .then(([bff]) => parse(bff.toString(), { from_line: 4 })),
+      ),
     )
   )
     .flat()
@@ -1006,7 +1010,7 @@ export const smartShoppingPerformance = async () => {
       "performances",
       "merchant_center",
       ["date", "merchantCenterId", "name", "currencyCode", "cost"],
-      rows
+      rows,
     );
   }
 
@@ -1025,7 +1029,7 @@ export const smartShoppingPerformance = async () => {
       mcMapping.map(({ merchantCenterId, shopifyProductGroup }) => ({
         feedId: merchantCenterId,
         productGroupId: String(shopifyProductGroup),
-      }))
+      })),
     );
   }
 };
@@ -1036,7 +1040,7 @@ const fundingsOnCMS = async () => {
   await Promise.all(
     data.map(async ({ id, title }) => {
       const funding = fundings.find(
-        ({ productGroupId }) => String(id) === productGroupId
+        ({ productGroupId }) => String(id) === productGroupId,
       );
       if (funding) {
         console.log("update fundings:", title);
@@ -1045,7 +1049,7 @@ const fundingsOnCMS = async () => {
           realSupporters: funding.supporters,
         });
       }
-    })
+    }),
   );
 };
 
@@ -1053,13 +1057,13 @@ const skuScheduleShift = async () => {
   const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
   const pendingShipmentCounts = await getPendingShipmentCounts(
-    skusOnDB.map(({ code }) => code)
+    skusOnDB.map(({ code }) => code),
   );
   const shippedCounts = await getShippedCounts(
     skusOnDB.map(({ code, lastSyncedAt }) => ({
       code,
       shippedAt: lastSyncedAt?.toISOString() ?? "2023-03-01",
-    }))
+    })),
   );
 
   for (const sku of skusOnDB) {
@@ -1074,7 +1078,7 @@ const skuScheduleShift = async () => {
       // 現在の販売可能在庫数 (現在枠+若い枠の在庫数)
       const currentAvailableStockCount = getCurrentAvailableTotalStockCount(
         inventory,
-        sku
+        sku,
       );
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let availableStock = sku.availableStock;
@@ -1231,6 +1235,183 @@ const skuScheduleShift = async () => {
     await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
 };
 
+const skuScheduleShiftNew = async () => {
+  const notifies: MessageAttachment[] = [];
+  const skusOnDB = await getAllSkus();
+  const pendingShipmentCounts = await getPendingShipmentCounts(
+    skusOnDB.map(({ code }) => code),
+  );
+  const shippedCounts = await getShippedCounts(
+    skusOnDB.map(({ code, lastSyncedAt }) => ({
+      code,
+      shippedAt: lastSyncedAt?.toISOString() ?? "2023-03-01",
+    })),
+  );
+
+  for (const sku of skusOnDB) {
+    const pendingShipmentCount =
+      pendingShipmentCounts.find(({ code }) => code === sku.code)?.count ?? 0;
+    const { count: shippedCount = 0, lastShippedAt } =
+      shippedCounts.find(({ code }) => code === sku.code) ?? {};
+    try {
+      // 出荷台数を実在庫数から引く
+      const inventory = Math.max(0, sku.inventory - shippedCount);
+
+      // 現在の販売可能在庫数 (現在枠+若い枠の在庫数)
+      const currentAvailableStockCount = getCurrentAvailableTotalStockCountNew(
+        inventory,
+        sku,
+      );
+
+      // TODO: ShopifyInventoryOrderSKUsを追加したら解除
+      if (
+        sku
+          .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs
+          .length < 1
+      )
+        continue;
+
+      // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
+      let currentInventoryOrderSKUId = sku.currentInventoryOrderSKUId;
+      if (
+        currentAvailableStockCount - pendingShipmentCount <=
+        (sku.stockBuffer ?? 0)
+      ) {
+        if (currentAvailableStockCount - pendingShipmentCount < 0) {
+          notifies.push({
+            title: sku.code,
+            title_link: cmsSKULink(sku.id),
+            text: "多売が発生したようです",
+            color: "warning",
+            fields: [
+              {
+                short: true,
+                title: "現在販売枠",
+                value: sku.availableStock,
+              },
+              {
+                short: true,
+                title: "販売可能数(現在枠より若い枠の累計)",
+                value: String(currentAvailableStockCount),
+              },
+              {
+                short: true,
+                title: "入荷予定在庫数",
+                value: String(pendingShipmentCount),
+              },
+            ],
+          });
+        }
+
+        const nextInventoryOrder = nextAvailableInventoryOrder(sku);
+        currentInventoryOrderSKUId = nextInventoryOrder.id;
+        notifies.push({
+          title: sku.code,
+          title_link: cmsSKULink(sku.id),
+          text: "下記SKUの販売枠を変更しました",
+          color: "good",
+          fields: [
+            {
+              short: true,
+              title: "新しい販売枠",
+              value: nextInventoryOrder.ShopifyInventoryOrders.name,
+            },
+            {
+              short: true,
+              title: "販売開始予定日",
+              value: String(
+                nextInventoryOrder.ShopifyInventoryOrders.deliveryDate,
+              ),
+            },
+            {
+              short: true,
+              title: "入荷予定在庫数",
+              value: String(nextInventoryOrder.quantity),
+            },
+            {
+              short: true,
+              title: "出荷待ち件数",
+              value: String(pendingShipmentCount),
+            },
+          ],
+        });
+      }
+
+      const data = {
+        inventory,
+        currentInventoryOrderSKUId,
+        unshippedOrderCount: pendingShipmentCount,
+        // lastSyncedAtという名前だが、最終出荷日時を入れる
+        lastSyncedAt: lastShippedAt?.value ?? sku.lastSyncedAt,
+      };
+      if (
+        // sku.inventory !== data.inventory ||
+        data.currentInventoryOrderSKUId &&
+        sku.currentInventoryOrderSKUId !== data.currentInventoryOrderSKUId
+        // sku.unshippedOrderCount !== data.unshippedOrderCount ||
+        // sku.lastSyncedAt !== data.lastSyncedAt
+      ) {
+        console.log("update sku:", sku.code, data);
+        await updateSku(sku.code, {
+          // inventory: data.inventory,
+          // unshippedOrderCount: data.unshippedOrderCount,
+          // lastSyncedAt: data.lastSyncedAt,
+          ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs:
+            {
+              // TODO: heldQuantityのアップデート
+              connect: { id: data.currentInventoryOrderSKUId },
+            },
+        });
+      }
+    } catch (e) {
+      if (!(e instanceof Error)) {
+        console.error(e);
+        throw e;
+      }
+      console.log("skuScheduleShift", sku.code, e.message);
+      notifies.push({
+        title: sku.code,
+        ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
+        color: "danger",
+        text: e.message,
+        fields: [
+          {
+            short: true,
+            title: "現在販売枠",
+            value:
+              sku
+                .ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs
+                ?.ShopifyInventoryOrders.name ?? "実在庫",
+          },
+          {
+            short: true,
+            title: "自動シフト閾値",
+            value: String(sku.stockBuffer),
+          },
+          {
+            short: true,
+            title: "実在庫(出荷処理前)",
+            value: String(sku.inventory),
+          },
+          {
+            short: true,
+            title: "出荷待ち件数",
+            value: String(pendingShipmentCount),
+          },
+          {
+            short: true,
+            title: "今回出荷処理数",
+            value: String(shippedCount),
+          },
+        ],
+      });
+    }
+  }
+
+  if (notifies.length)
+    await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
+};
+
 const validateCMSData = async () => {
   const products = await getAllProducts();
   const alerts: MessageAttachment[] = [];
@@ -1248,7 +1429,7 @@ const validateCMSData = async () => {
   const skuCodeSet = new Set((await getAllSkus()).map(({ code }) => code));
   const notConnectedSKUVariations = variations.filter(
     ({ ShopifyVariants_ShopifyCustomSKUs }) =>
-      ShopifyVariants_ShopifyCustomSKUs.length < 1
+      ShopifyVariants_ShopifyCustomSKUs.length < 1,
   );
   for (const variations of notConnectedSKUVariations) {
     const { skusJSON, id, variantName } = variations;
@@ -1286,7 +1467,7 @@ const validateCMSData = async () => {
       await postMessage(
         notifySlackChannel,
         "設定値に問題が発生しています。確認してください。",
-        messageAttachments
+        messageAttachments,
       );
     }
 };
@@ -1307,6 +1488,8 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
   await ordersAndLineItems();
+  console.log("Shift sku schedule by inventory order");
+  await skuScheduleShiftNew();
   console.log("Shift sku schedule");
   await skuScheduleShift();
   console.log("Sync smart shopping performance");

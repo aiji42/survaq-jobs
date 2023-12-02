@@ -3,7 +3,7 @@ import { client, getAllSkus, BigQueryTimestamp } from "@survaq-jobs/libraries";
 const { DIRECTUS_URL = "" } = process.env;
 
 export const getPendingShipmentCounts = async (
-  codes: string[]
+  codes: string[],
 ): Promise<Array<{ code: string; count: number }>> => {
   if (codes.length === 0) return [];
   const [res] = await client.query({
@@ -21,7 +21,7 @@ export const getPendingShipmentCounts = async (
 };
 
 export const getShippedCounts = async (
-  codeAndShippedAtSet: Array<{ code: string; shippedAt: string }>
+  codeAndShippedAtSet: Array<{ code: string; shippedAt: string }>,
 ): Promise<
   Array<{ code: string; count: number; lastShippedAt: BigQueryTimestamp }>
 > => {
@@ -33,7 +33,7 @@ export const getShippedCounts = async (
       WHERE ${codeAndShippedAtSet
         .map(
           ({ code, shippedAt }) =>
-            `(fulfilled_at > '${shippedAt}' AND code = '${code}')`
+            `(fulfilled_at > '${shippedAt}' AND code = '${code}')`,
         )
         .join(" OR ")}
       GROUP BY code
@@ -47,7 +47,7 @@ export const cmsSKULink = (id: number) =>
 
 export const getCurrentAvailableTotalStockCount = (
   inventory: number,
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ) => {
   let count = inventory;
   if (sku.availableStock === "REAL") return count;
@@ -62,8 +62,24 @@ export const getCurrentAvailableTotalStockCount = (
   return count;
 };
 
+export const getCurrentAvailableTotalStockCountNew = (
+  inventory: number,
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
+): number => {
+  let count = inventory;
+  if (
+    !sku.ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs
+  )
+    return count;
+  for (const order of sku.ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs) {
+    count += order.quantity;
+    if (order.id === sku.currentInventoryOrderSKUId) break;
+  }
+  return count;
+};
+
 export const nextAvailableStock = (
-  availableStockPointer: string
+  availableStockPointer: string,
 ): "A" | "B" | "C" => {
   if (availableStockPointer === "REAL") return "A";
   if (availableStockPointer === "A") return "B";
@@ -71,9 +87,39 @@ export const nextAvailableStock = (
   throw new Error("A~Cまで枠をすべて使い切りました");
 };
 
+export const nextAvailableInventoryOrder = (
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
+) => {
+  const current =
+    sku.ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs;
+  let next:
+    | undefined
+    | Awaited<
+        ReturnType<typeof getAllSkus>
+      >[number]["ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs"][number] =
+    undefined;
+  if (!current)
+    next =
+      sku
+        .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs?.[0];
+  else {
+    const index =
+      sku.ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs.findIndex(
+        ({ id }) => id === sku.currentInventoryOrderSKUId,
+      );
+    next =
+      sku
+        .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs?.[
+        index + 1
+      ];
+  }
+  if (!next) throw new Error("次にシフトすべき発注データがありません");
+  return next;
+};
+
 export const validateStockQty = (
   availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ) => {
   if (
     availableStock === "A" &&
@@ -105,7 +151,7 @@ const isScheduleFormat = (dateString: string | null): boolean => {
 
 export const incomingStock = (
   availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number]
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ): [Date, number] => {
   if (availableStock === "A") {
     validateStockQty("A", sku);
