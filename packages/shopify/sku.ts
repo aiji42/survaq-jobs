@@ -67,11 +67,8 @@ export const getCurrentAvailableTotalStockCountNew = (
   sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ): number => {
   let count = inventory;
-  if (
-    !sku.ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs
-  )
-    return count;
-  for (const order of sku.ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs) {
+  if (!sku.currentInventoryOrderSKU) return count;
+  for (const order of sku.inventoryOrderSKUs) {
     count += order.quantity;
     if (order.id === sku.currentInventoryOrderSKUId) break;
   }
@@ -90,28 +87,18 @@ export const nextAvailableStock = (
 export const nextAvailableInventoryOrder = (
   sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ) => {
-  const current =
-    sku.ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs;
+  const current = sku.currentInventoryOrderSKU;
   let next:
     | undefined
     | Awaited<
         ReturnType<typeof getAllSkus>
-      >[number]["ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs"][number] =
-    undefined;
-  if (!current)
-    next =
-      sku
-        .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs?.[0];
+      >[number]["inventoryOrderSKUs"][number];
+  if (!current) next = sku.inventoryOrderSKUs?.[0];
   else {
-    const index =
-      sku.ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs.findIndex(
-        ({ id }) => id === sku.currentInventoryOrderSKUId,
-      );
-    next =
-      sku
-        .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs?.[
-        index + 1
-      ];
+    const index = sku.inventoryOrderSKUs.findIndex(
+      ({ id }) => id === sku.currentInventoryOrderSKUId,
+    );
+    next = sku.inventoryOrderSKUs?.[index + 1];
   }
   if (!next) throw new Error("次にシフトすべき発注データがありません");
   return next;

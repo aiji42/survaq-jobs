@@ -73,34 +73,34 @@ model GoogleMerchantCenter {
 }
 
 model ShopifyCustomSKUs {
-  id                                                                                                Int                                 @id @default(autoincrement())
-  createdAt                                                                                         DateTime?                           @db.Timestamptz(6)
-  updatedAt                                                                                         DateTime?                           @db.Timestamptz(6)
-  code                                                                                              String                              @unique(map: "shopifycustomskus_code_unique") @db.VarChar(255)
-  name                                                                                              String                              @db.VarChar(255)
-  subName                                                                                           String?                             @db.VarChar(255)
-  deliverySchedule                                                                                  String?                             @db.VarChar(255)
-  inventory                                                                                         Int                                 @default(0)
-  incomingStockQtyA                                                                                 Int?
-  incomingStockDateA                                                                                DateTime?                           @db.Date
-  incomingStockQtyB                                                                                 Int?
-  incomingStockQtyC                                                                                 Int?
-  incomingStockDateB                                                                                DateTime?                           @db.Date
-  incomingStockDateC                                                                                DateTime?                           @db.Date
-  availableStock                                                                                    String                              @default("REAL") @db.VarChar(255)
-  unshippedOrderCount                                                                               Int                                 @default(0)
-  lastSyncedAt                                                                                      DateTime?                           @db.Timestamp(6)
-  stockBuffer                                                                                       Int?                                @default(5)
-  incomingStockDeliveryScheduleA                                                                    String?                             @db.VarChar(255)
-  incomingStockDeliveryScheduleB                                                                    String?                             @db.VarChar(255)
-  incomingStockDeliveryScheduleC                                                                    String?                             @db.VarChar(255)
-  skipDeliveryCalc                                                                                  Boolean?                            @default(false)
-  displayName                                                                                       String?                             @db.VarChar(255)
-  sortNumber                                                                                        Int                                 @default(0)
-  currentInventoryOrderSKUId                                                                        Int?
-  ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs ShopifyInventoryOrderSKUs?          @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs", fields: [currentInventoryOrderSKUId], references: [id], onUpdate: NoAction, map: "shopifycustomskus_currentinventoryorderskuid_foreign")
-  ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs                      ShopifyInventoryOrderSKUs[]         @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs")
-  ShopifyVariants_ShopifyCustomSKUs                                                                 ShopifyVariants_ShopifyCustomSKUs[]
+  id                                Int                                 @id @default(autoincrement())
+  createdAt                         DateTime?                           @db.Timestamptz(6)
+  updatedAt                         DateTime?                           @db.Timestamptz(6)
+  code                              String                              @unique(map: "shopifycustomskus_code_unique") @db.VarChar(255)
+  name                              String                              @db.VarChar(255)
+  subName                           String?                             @db.VarChar(255)
+  deliverySchedule                  String?                             @db.VarChar(255)
+  inventory                         Int                                 @default(0)
+  incomingStockQtyA                 Int?
+  incomingStockDateA                DateTime?                           @db.Date
+  incomingStockQtyB                 Int?
+  incomingStockQtyC                 Int?
+  incomingStockDateB                DateTime?                           @db.Date
+  incomingStockDateC                DateTime?                           @db.Date
+  availableStock                    String                              @default("REAL") @db.VarChar(255)
+  unshippedOrderCount               Int                                 @default(0)
+  lastSyncedAt                      DateTime?                           @db.Timestamp(6)
+  stockBuffer                       Int?                                @default(5)
+  incomingStockDeliveryScheduleA    String?                             @db.VarChar(255)
+  incomingStockDeliveryScheduleB    String?                             @db.VarChar(255)
+  incomingStockDeliveryScheduleC    String?                             @db.VarChar(255)
+  skipDeliveryCalc                  Boolean?                            @default(false)
+  displayName                       String?                             @db.VarChar(255)
+  sortNumber                        Int                                 @default(0)
+  currentInventoryOrderSKUId        Int?
+  currentInventoryOrderSKU          ShopifyInventoryOrderSKUs?          @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs", fields: [currentInventoryOrderSKUId], references: [id], onUpdate: NoAction, map: "shopifycustomskus_currentinventoryorderskuid_foreign")
+  inventoryOrderSKUs                ShopifyInventoryOrderSKUs[]         @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs")
+  ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
 }
 
 model ShopifyPages {

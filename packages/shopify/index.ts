@@ -1264,12 +1264,7 @@ const skuScheduleShiftNew = async () => {
       );
 
       // TODO: ShopifyInventoryOrderSKUsを追加したら解除
-      if (
-        sku
-          .ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs
-          .length < 1
-      )
-        continue;
+      if (sku.inventoryOrderSKUs.length < 1) continue;
 
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let currentInventoryOrderSKUId = sku.currentInventoryOrderSKUId;
@@ -1356,11 +1351,10 @@ const skuScheduleShiftNew = async () => {
           // inventory: data.inventory,
           // unshippedOrderCount: data.unshippedOrderCount,
           // lastSyncedAt: data.lastSyncedAt,
-          ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs:
-            {
-              // TODO: heldQuantityのアップデート
-              connect: { id: data.currentInventoryOrderSKUId },
-            },
+          currentInventoryOrderSKU: {
+            // TODO: heldQuantityのアップデート
+            connect: { id: data.currentInventoryOrderSKUId },
+          },
         });
       }
     } catch (e) {
@@ -1379,9 +1373,8 @@ const skuScheduleShiftNew = async () => {
             short: true,
             title: "現在販売枠",
             value:
-              sku
-                .ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs
-                ?.ShopifyInventoryOrders.name ?? "実在庫",
+              sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ??
+              "実在庫",
           },
           {
             short: true,

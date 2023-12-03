@@ -113,28 +113,26 @@ export const getGoogleMerchantCenter = async () => {
 export const getAllSkus = async () => {
   return prisma.shopifyCustomSKUs.findMany({
     include: {
-      ShopifyInventoryOrderSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs:
-        {
-          where: {
-            ShopifyInventoryOrders: {
-              status: { in: ["waitingShipping", "waitingReceiving"] },
-            },
-          },
-          include: {
-            ShopifyInventoryOrders: true,
-          },
-          orderBy: {
-            ShopifyInventoryOrders: {
-              deliveryDate: "asc",
-            },
+      inventoryOrderSKUs: {
+        where: {
+          ShopifyInventoryOrders: {
+            status: { in: ["waitingShipping", "waitingReceiving"] },
           },
         },
-      ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs:
-        {
-          include: {
-            ShopifyInventoryOrders: true,
+        include: {
+          ShopifyInventoryOrders: true,
+        },
+        orderBy: {
+          ShopifyInventoryOrders: {
+            deliveryDate: "asc",
           },
         },
+      },
+      currentInventoryOrderSKU: {
+        include: {
+          ShopifyInventoryOrders: true,
+        },
+      },
     },
     take: 1000,
   });
@@ -171,7 +169,7 @@ export const updateSku = async (
     | "lastSyncedAt"
     | "unshippedOrderCount"
     | "inventory"
-    | "ShopifyInventoryOrderSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs"
+    | "currentInventoryOrderSKU"
   >,
 ) => {
   if (DRY_RUN) {
