@@ -22,12 +22,12 @@ import { createClient as createShopifyClient, orderAdminLink } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
+  calcHeldQuantity,
   cmsSKULink,
   getCurrentAvailableTotalStockCount,
   getCurrentAvailableTotalStockCountNew,
   getPendingShipmentCounts,
   getShippedCounts,
-  incomingStock,
   nextAvailableInventoryOrder,
   nextAvailableStock,
   validateStockQty,
@@ -1073,9 +1073,19 @@ const skuScheduleShift = async () => {
       shippedCounts.find(({ code }) => code === sku.code) ?? {};
     try {
       // 出荷台数を実在庫数から引く
-      const inventory = Math.max(0, sku.inventory - shippedCount);
+      const inventory = sku.inventory - shippedCount;
 
-      // 現在の販売可能在庫数 (現在枠+若い枠の在庫数)
+      if (inventory < 0) {
+        notifies.push({
+          title: sku.code,
+          title_link: cmsSKULink(sku.id),
+          text: "在庫数がマイナスになっています",
+          color: "danger",
+          fields: [{ title: "inventory", value: String(inventory) }],
+        });
+      }
+
+      // 現在の販売可能在庫数 (実在庫+現在枠より若い枠の個数+現在枠の個数)
       const currentAvailableStockCount = getCurrentAvailableTotalStockCount(
         inventory,
         sku,
@@ -1093,23 +1103,7 @@ const skuScheduleShift = async () => {
             title_link: cmsSKULink(sku.id),
             text: "多売が発生したようです",
             color: "warning",
-            fields: [
-              {
-                short: true,
-                title: "現在販売枠",
-                value: sku.availableStock,
-              },
-              {
-                short: true,
-                title: "販売可能数(現在枠より若い枠の累計)",
-                value: String(currentAvailableStockCount),
-              },
-              {
-                short: true,
-                title: "入荷予定在庫数",
-                value: String(pendingShipmentCount),
-              },
-            ],
+            fields: [{ title: "現在販売枠", value: sku.availableStock }],
           });
         }
 
@@ -1121,28 +1115,7 @@ const skuScheduleShift = async () => {
           title_link: cmsSKULink(sku.id),
           text: "下記SKUの販売枠を変更しました",
           color: "good",
-          fields: [
-            {
-              short: true,
-              title: "新しい販売枠",
-              value: availableStock,
-            },
-            {
-              short: true,
-              title: "入荷予定日",
-              value: String(incomingStock(newAvailableStock, sku)[0]),
-            },
-            {
-              short: true,
-              title: "入荷予定在庫数",
-              value: String(incomingStock(newAvailableStock, sku)[1]),
-            },
-            {
-              short: true,
-              title: "出荷待ち件数",
-              value: String(pendingShipmentCount),
-            },
-          ],
+          fields: [{ title: "新しい販売枠", value: availableStock }],
         });
       }
 
@@ -1173,60 +1146,7 @@ const skuScheduleShift = async () => {
         ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
         color: "danger",
         text: e.message,
-        fields: [
-          {
-            short: true,
-            title: "現在販売枠",
-            value: sku.availableStock,
-          },
-          {
-            short: true,
-            title: "自動シフト閾値",
-            value: String(sku.stockBuffer),
-          },
-          {
-            short: true,
-            title: "実在庫(出荷処理前)",
-            value: String(sku.inventory),
-          },
-          {
-            short: true,
-            title: "出荷待ち件数",
-            value: String(pendingShipmentCount),
-          },
-          {
-            short: true,
-            title: "今回出荷処理数",
-            value: String(shippedCount),
-          },
-          ...(sku?.incomingStockQtyA
-            ? [
-                {
-                  short: true,
-                  title: "A枠入荷予定数",
-                  value: String(sku.incomingStockQtyA),
-                },
-              ]
-            : []),
-          ...(sku?.incomingStockQtyB
-            ? [
-                {
-                  short: true,
-                  title: "B枠入荷予定数",
-                  value: String(sku.incomingStockQtyB),
-                },
-              ]
-            : []),
-          ...(sku?.incomingStockQtyC
-            ? [
-                {
-                  short: true,
-                  title: "C枠入荷予定数",
-                  value: String(sku.incomingStockQtyC),
-                },
-              ]
-            : []),
-        ],
+        fields: [{ title: "現在販売枠", value: sku.availableStock }],
       });
     }
   }
@@ -1255,9 +1175,19 @@ const skuScheduleShiftNew = async () => {
       shippedCounts.find(({ code }) => code === sku.code) ?? {};
     try {
       // 出荷台数を実在庫数から引く
-      const inventory = Math.max(0, sku.inventory - shippedCount);
+      const inventory = sku.inventory - shippedCount;
 
-      // 現在の販売可能在庫数 (現在枠+若い枠の在庫数)
+      if (inventory < 0) {
+        notifies.push({
+          title: sku.code,
+          title_link: cmsSKULink(sku.id),
+          text: "在庫数がマイナスになっています",
+          color: "danger",
+          fields: [{ title: "inventory", value: String(inventory) }],
+        });
+      }
+
+      // 現在の販売可能在庫数 (実在庫+現在枠より若い枠の個数+現在枠の個数)
       const currentAvailableStockCount = getCurrentAvailableTotalStockCountNew(
         inventory,
         sku,
@@ -1280,19 +1210,10 @@ const skuScheduleShiftNew = async () => {
             color: "warning",
             fields: [
               {
-                short: true,
                 title: "現在販売枠",
-                value: sku.availableStock,
-              },
-              {
-                short: true,
-                title: "販売可能数(現在枠より若い枠の累計)",
-                value: String(currentAvailableStockCount),
-              },
-              {
-                short: true,
-                title: "入荷予定在庫数",
-                value: String(pendingShipmentCount),
+                value:
+                  sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ??
+                  "実在庫",
               },
             ],
           });
@@ -1307,26 +1228,8 @@ const skuScheduleShiftNew = async () => {
           color: "good",
           fields: [
             {
-              short: true,
               title: "新しい販売枠",
               value: nextInventoryOrder.ShopifyInventoryOrders.name,
-            },
-            {
-              short: true,
-              title: "販売開始予定日",
-              value: String(
-                nextInventoryOrder.ShopifyInventoryOrders.deliveryDate,
-              ),
-            },
-            {
-              short: true,
-              title: "入荷予定在庫数",
-              value: String(nextInventoryOrder.quantity),
-            },
-            {
-              short: true,
-              title: "出荷待ち件数",
-              value: String(pendingShipmentCount),
             },
           ],
         });
@@ -1340,22 +1243,37 @@ const skuScheduleShiftNew = async () => {
         lastSyncedAt: lastShippedAt?.value ?? sku.lastSyncedAt,
       };
       if (
-        // sku.inventory !== data.inventory ||
-        data.currentInventoryOrderSKUId &&
-        sku.currentInventoryOrderSKUId !== data.currentInventoryOrderSKUId
-        // sku.unshippedOrderCount !== data.unshippedOrderCount ||
-        // sku.lastSyncedAt !== data.lastSyncedAt
+        sku.inventory !== data.inventory ||
+        sku.currentInventoryOrderSKUId !== data.currentInventoryOrderSKUId ||
+        sku.unshippedOrderCount !== data.unshippedOrderCount ||
+        sku.lastSyncedAt !== data.lastSyncedAt
       ) {
+        const { inventoryOrders, rest } = calcHeldQuantity(
+          data.inventory,
+          data.unshippedOrderCount,
+          sku,
+        );
+
         console.log("update sku:", sku.code, data);
         await updateSku(sku.code, {
           // inventory: data.inventory,
           // unshippedOrderCount: data.unshippedOrderCount,
           // lastSyncedAt: data.lastSyncedAt,
-          currentInventoryOrderSKU: {
-            // TODO: heldQuantityのアップデート
-            connect: { id: data.currentInventoryOrderSKUId },
+          ...(data.currentInventoryOrderSKUId && {
+            currentInventoryOrderSKU: {
+              connect: { id: data.currentInventoryOrderSKUId },
+            },
+          }),
+          inventoryOrderSKUs: {
+            update: inventoryOrders.map(({ id, heldQuantity }) => ({
+              where: { id },
+              data: { heldQuantity },
+            })),
           },
         });
+
+        if (rest > 0)
+          throw new Error(`未発送件数が販売可能枠以上に溜まってない？`);
       }
     } catch (e) {
       if (!(e instanceof Error)) {
@@ -1370,31 +1288,10 @@ const skuScheduleShiftNew = async () => {
         text: e.message,
         fields: [
           {
-            short: true,
             title: "現在販売枠",
             value:
               sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ??
               "実在庫",
-          },
-          {
-            short: true,
-            title: "自動シフト閾値",
-            value: String(sku.stockBuffer),
-          },
-          {
-            short: true,
-            title: "実在庫(出荷処理前)",
-            value: String(sku.inventory),
-          },
-          {
-            short: true,
-            title: "出荷待ち件数",
-            value: String(pendingShipmentCount),
-          },
-          {
-            short: true,
-            title: "今回出荷処理数",
-            value: String(shippedCount),
           },
         ],
       });

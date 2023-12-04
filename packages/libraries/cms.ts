@@ -170,6 +170,7 @@ export const updateSku = async (
     | "unshippedOrderCount"
     | "inventory"
     | "currentInventoryOrderSKU"
+    | "inventoryOrderSKUs"
   >,
 ) => {
   if (DRY_RUN) {

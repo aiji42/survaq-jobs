@@ -75,6 +75,33 @@ export const getCurrentAvailableTotalStockCountNew = (
   return count;
 };
 
+export const calcHeldQuantity = (
+  currentInventory: number,
+  pendingShipmentCount: number,
+  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
+) => {
+  let rest = pendingShipmentCount - (currentInventory - (sku.stockBuffer ?? 0));
+
+  const inventoryOrders = sku.inventoryOrderSKUs.flatMap<
+    Awaited<ReturnType<typeof getAllSkus>>[number]["inventoryOrderSKUs"][number]
+  >((order) => {
+    if (rest <= 0) return [];
+
+    const heldQuantity = Math.min(
+      rest,
+      order.quantity - (sku.stockBuffer ?? 0),
+    );
+    rest -= heldQuantity;
+
+    return {
+      ...order,
+      heldQuantity,
+    };
+  });
+
+  return { inventoryOrders, rest };
+};
+
 export const nextAvailableStock = (
   availableStockPointer: string,
 ): "A" | "B" | "C" => {
@@ -100,7 +127,7 @@ export const nextAvailableInventoryOrder = (
     );
     next = sku.inventoryOrderSKUs?.[index + 1];
   }
-  if (!next) throw new Error("次にシフトすべき発注データがありません");
+  if (!next) throw new Error("次に販売枠をシフトすべき発注データがありません");
   return next;
 };
 
@@ -134,20 +161,4 @@ export const validateStockQty = (
 const isScheduleFormat = (dateString: string | null): boolean => {
   const regex = /^(\d{4})-(0[1-9]|1[0-2])-(early|middle|late)$/;
   return regex.test(dateString ?? "");
-};
-
-export const incomingStock = (
-  availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
-): [Date, number] => {
-  if (availableStock === "A") {
-    validateStockQty("A", sku);
-    return [sku.incomingStockDateA as Date, sku.incomingStockQtyA as number];
-  }
-  if (availableStock === "B") {
-    validateStockQty("B", sku);
-    return [sku.incomingStockDateB as Date, sku.incomingStockQtyB as number];
-  }
-  validateStockQty("C", sku);
-  return [sku.incomingStockDateC as Date, sku.incomingStockQtyC as number];
 };
