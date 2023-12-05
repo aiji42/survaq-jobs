@@ -1193,9 +1193,6 @@ const skuScheduleShiftNew = async () => {
         sku,
       );
 
-      // TODO: ShopifyInventoryOrderSKUsを追加したら解除
-      if (sku.inventoryOrderSKUs.length < 1) continue;
-
       // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
       let currentInventoryOrderSKUId = sku.currentInventoryOrderSKUId;
       if (
