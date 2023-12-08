@@ -1053,6 +1053,8 @@ const fundingsOnCMS = async () => {
   );
 };
 
+// TODO: 完全に切り替わったら消す
+// 依存モジュールも
 const skuScheduleShift = async () => {
   const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
@@ -1133,7 +1135,12 @@ const skuScheduleShift = async () => {
         sku.lastSyncedAt !== data.lastSyncedAt
       ) {
         console.log("update sku:", sku.code, data);
-        await updateSku(sku.code, data);
+        await updateSku(sku.code, {
+          // inventory: data.inventory,
+          availableStock: data.availableStock,
+          // unshippedOrderCount: data.unshippedOrderCount,
+          // lastSyncedAt: data.lastSyncedAt
+        });
       }
     } catch (e) {
       if (!(e instanceof Error)) {
@@ -1155,6 +1162,7 @@ const skuScheduleShift = async () => {
     await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
 };
 
+// TODO: 完全に切り替わったら名前変更
 const skuScheduleShiftNew = async () => {
   const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
@@ -1253,9 +1261,9 @@ const skuScheduleShiftNew = async () => {
 
         console.log("update sku:", sku.code, data);
         await updateSku(sku.code, {
-          // inventory: data.inventory,
-          // unshippedOrderCount: data.unshippedOrderCount,
-          // lastSyncedAt: data.lastSyncedAt,
+          inventory: data.inventory,
+          unshippedOrderCount: data.unshippedOrderCount,
+          lastSyncedAt: data.lastSyncedAt,
           ...(data.currentInventoryOrderSKUId && {
             currentInventoryOrderSKU: {
               connect: { id: data.currentInventoryOrderSKUId },
@@ -1375,10 +1383,10 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
   await ordersAndLineItems();
-  console.log("Shift sku schedule by inventory order");
-  await skuScheduleShiftNew();
   console.log("Shift sku schedule");
   await skuScheduleShift();
+  console.log("Shift sku schedule by inventory order");
+  await skuScheduleShiftNew();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
   console.log("Sync fundings on cms");
