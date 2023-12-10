@@ -45,23 +45,6 @@ export const getShippedCounts = async (
 export const cmsSKULink = (id: number) =>
   `${DIRECTUS_URL}/admin/content/ShopifyCustomSKUs/${id}`;
 
-export const getCurrentAvailableTotalStockCount = (
-  inventory: number,
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
-) => {
-  let count = inventory;
-  if (sku.availableStock === "REAL") return count;
-  validateStockQty("A", sku);
-  count += sku.incomingStockQtyA as number;
-  if (sku.availableStock === "A") return count;
-  validateStockQty("B", sku);
-  count += sku.incomingStockQtyB as number;
-  if (sku.availableStock === "B") return count;
-  validateStockQty("C", sku);
-  count += sku.incomingStockQtyC as number;
-  return count;
-};
-
 export const updatableInventoryOrdersAndNextInventoryOrder = (
   currentInventory: number,
   pendingShipmentCount: number,
@@ -106,65 +89,4 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
   );
 
   return { updatableInventoryOrders, nextInventoryOrder, rest };
-};
-
-export const nextAvailableStock = (
-  availableStockPointer: string,
-): "A" | "B" | "C" => {
-  if (availableStockPointer === "REAL") return "A";
-  if (availableStockPointer === "A") return "B";
-  if (availableStockPointer === "B") return "C";
-  throw new Error("A~Cまで枠をすべて使い切りました");
-};
-
-export const nextAvailableInventoryOrder = (
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
-) => {
-  const current = sku.currentInventoryOrderSKU;
-  let next:
-    | undefined
-    | Awaited<
-        ReturnType<typeof getAllSkus>
-      >[number]["inventoryOrderSKUs"][number];
-  if (!current) next = sku.inventoryOrderSKUs?.[0];
-  else {
-    const index = sku.inventoryOrderSKUs.findIndex(
-      ({ id }) => id === sku.currentInventoryOrderSKUId,
-    );
-    next = sku.inventoryOrderSKUs?.[index + 1];
-  }
-  if (!next) throw new Error("次に販売枠をシフトすべき発注データがありません");
-  return next;
-};
-
-export const validateStockQty = (
-  availableStock: "A" | "B" | "C",
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
-) => {
-  if (
-    availableStock === "A" &&
-    (!sku.incomingStockQtyA ||
-      !sku.incomingStockDateA ||
-      !isScheduleFormat(sku.incomingStockDeliveryScheduleA))
-  )
-    throw new Error("A枠のデータが不足しているか不備があります");
-  if (
-    availableStock === "B" &&
-    (!sku.incomingStockQtyB ||
-      !sku.incomingStockDateB ||
-      !isScheduleFormat(sku.incomingStockDeliveryScheduleB))
-  )
-    throw new Error("B枠のデータが不足しているか不備があります");
-  if (
-    availableStock === "C" &&
-    (!sku.incomingStockQtyC ||
-      !sku.incomingStockDateC ||
-      !isScheduleFormat(sku.incomingStockDeliveryScheduleC))
-  )
-    throw new Error("C枠のデータが不足しているか不備があります");
-};
-
-const isScheduleFormat = (dateString: string | null): boolean => {
-  const regex = /^(\d{4})-(0[1-9]|1[0-2])-(early|middle|late)$/;
-  return regex.test(dateString ?? "");
 };
