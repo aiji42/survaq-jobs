@@ -309,6 +309,15 @@ const orderListQuery = (query: string, cursor: null | string) => `{
         display_fulfillment_status: displayFulfillmentStatus
         fulfillments {
           createdAt
+          fulfillmentLineItems(first: 5) {
+            edges {
+              node {
+                lineItem {
+                  id
+                }
+              }
+            }
+          }
         }
         closed
         totalPriceSet {
@@ -337,7 +346,7 @@ const orderListQuery = (query: string, cursor: null | string) => `{
         cancelled_at: cancelledAt
         created_at: createdAt
         updated_at: updatedAt
-        lineItems(first: 10) {
+        lineItems(first: 5) {
           edges {
             node {
               id
@@ -474,6 +483,7 @@ type OrderNode = {
 
 type Fulfillment = {
   createdAt: string;
+  fulfillmentLineItems: EdgesNode<{ lineItem: Pick<LineItemNode, "id"> }>;
 };
 
 type OrderRecord = Omit<
@@ -721,6 +731,17 @@ export const ordersAndLineItems = async (): Promise<void> => {
             {},
           );
 
+          const fulfilledAt = node.fulfillments.find(
+            ({ fulfillmentLineItems: { edges } }) =>
+              edges.some(
+                ({
+                  node: {
+                    lineItem: { id },
+                  },
+                }) => id === item.id,
+              ),
+          )?.createdAt;
+
           return Object.entries(quantityBySku).map(([sku, qty]) => ({
             code: sku,
             order_id: node.id,
@@ -728,7 +749,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             variant_id: item.variant?.id ?? null,
             line_item_id: item.id,
             ordered_at: node.created_at ?? new Date().toISOString(),
-            fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
+            fulfilled_at: fulfilledAt ?? null,
             canceled_at: node.cancelled_at,
             closed_at: node.closed_at,
             quantity: item.quantity * qty,
