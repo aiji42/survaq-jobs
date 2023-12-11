@@ -1148,10 +1148,10 @@ const skuScheduleShift = async () => {
         lastSyncedAt: lastShippedAt?.value ?? sku.lastSyncedAt,
       };
       if (
-        sku.inventory !== data.inventory ||
-        sku.availableStock !== data.availableStock ||
-        sku.unshippedOrderCount !== data.unshippedOrderCount ||
-        sku.lastSyncedAt !== data.lastSyncedAt
+        // sku.inventory !== data.inventory ||
+        sku.availableStock !== data.availableStock
+        // sku.unshippedOrderCount !== data.unshippedOrderCount ||
+        // sku.lastSyncedAt !== data.lastSyncedAt
       ) {
         console.log("update sku:", sku.code, data);
         await updateSku(sku.code, {
