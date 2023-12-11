@@ -174,7 +174,8 @@ export const updateSku = async (
   >,
 ) => {
   if (DRY_RUN) {
-    console.log("DRY RUN: update ShopifyCustomSKUs code:", code, data);
+    console.log("DRY RUN: update ShopifyCustomSKUs code:", code);
+    console.dir(data, { depth: 5 });
   } else {
     await prisma.shopifyCustomSKUs.update({
       where: { code },

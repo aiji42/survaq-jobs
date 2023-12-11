@@ -62,44 +62,50 @@ export const getCurrentAvailableTotalStockCount = (
   return count;
 };
 
-export const getCurrentAvailableTotalStockCountNew = (
-  inventory: number,
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
-): number => {
-  let count = inventory;
-  if (!sku.currentInventoryOrderSKU) return count;
-  for (const order of sku.inventoryOrderSKUs) {
-    count += order.quantity;
-    if (order.id === sku.currentInventoryOrderSKUId) break;
-  }
-  return count;
-};
-
-export const calcHeldQuantity = (
+export const updatableInventoryOrdersAndNextInventoryOrder = (
   currentInventory: number,
   pendingShipmentCount: number,
   sku: Awaited<ReturnType<typeof getAllSkus>>[number],
 ) => {
-  let rest = pendingShipmentCount - (currentInventory - (sku.stockBuffer ?? 0));
+  const buffer = sku.stockBuffer ?? 0;
+  let rest = pendingShipmentCount;
 
-  const inventoryOrders = sku.inventoryOrderSKUs.flatMap<
-    Awaited<ReturnType<typeof getAllSkus>>[number]["inventoryOrderSKUs"][number]
-  >((order) => {
-    if (rest <= 0) return [];
-
-    const heldQuantity = Math.min(
-      rest,
-      order.quantity - (sku.stockBuffer ?? 0),
-    );
-    rest -= heldQuantity;
+  // 現在の出荷待ち件数を、実在庫 > 発注1 > 発注2 ... の順番に差押件数として振っていく
+  const inventoryOrders = [
+    // 計算上実在庫を仮想の発注データとして扱う
+    { heldQuantity: 0, quantity: currentInventory, id: null },
+    ...sku.inventoryOrderSKUs,
+  ].map((order) => {
+    const availableQuantity = order.quantity - buffer;
+    const heldQuantity = Math.min(rest, availableQuantity);
+    rest = Math.max(0, rest - heldQuantity);
 
     return {
-      ...order,
+      id: order.id,
       heldQuantity,
+      modified: order.heldQuantity !== heldQuantity,
+      available: availableQuantity > heldQuantity,
     };
   });
 
-  return { inventoryOrders, rest };
+  const [last] = inventoryOrders.slice(-1);
+  // availableが見つからないということは次にシフトすべき枠(発注データ)がないということ。とりあえず一番最後の発注を販売枠としておく
+  // last!としているが、実在庫を仮想の発注として突っ込んでいるので、絶対にlastはundefinedにならない
+  const nextInventoryOrder =
+    inventoryOrders.find(({ available }) => available) ?? last!;
+
+  const updatableInventoryOrders = inventoryOrders.filter(
+    (
+      order,
+    ): order is {
+      id: number;
+      heldQuantity: number;
+      modified: boolean;
+      available: boolean;
+    } => !!order.id && order.modified,
+  );
+
+  return { updatableInventoryOrders, nextInventoryOrder, rest };
 };
 
 export const nextAvailableStock = (
