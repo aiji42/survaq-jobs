@@ -116,10 +116,16 @@ export const insertRecords = async <
   if (DRY_RUN) {
     console.log("DRY RUN: insert records", dataset, table);
     console.log("columns", columns);
-    if (Object.keys(data[0] ?? {}).length < 20) {
-      console.table(data.slice(0, 10));
-      if (data.length > 10) console.log("and more...");
-    }
+    console.table(
+      data
+        .slice(0, 10)
+        .map((d) =>
+          Object.fromEntries(
+            Object.entries(d).filter(([k]) => columns.includes(k)),
+          ),
+        ),
+    );
+    if (data.length > 10) console.log("and more...");
     console.log(query);
   } else {
     if (printLog) console.log(query);
