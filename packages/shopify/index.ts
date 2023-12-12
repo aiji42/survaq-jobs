@@ -1178,7 +1178,11 @@ const skuScheduleShift = async () => {
   }
 
   if (notifies.length)
-    await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
+    await postMessage(
+      notifySlackChannel,
+      "SKU調整処理通知",
+      notifies.map((notify) => ({ ...notify, text: `[旧]${notify.text}` })),
+    );
 };
 
 // TODO: 完全に切り替わったら名前変更
@@ -1226,17 +1230,28 @@ const skuScheduleShiftNew = async () => {
         sku.inventory !== inventory ||
         sku.unshippedOrderCount !== unshippedOrderCount ||
         sku.lastSyncedAt !== lastSyncedAt ||
-        sku.currentInventoryOrderSKUId !== (nextInventoryOrder?.id ?? null) ||
+        sku.currentInventoryOrderSKUId !== nextInventoryOrder.id ||
         updatableInventoryOrders.length
       ) {
         console.log("update sku:", sku.code);
+
+        if (sku.currentInventoryOrderSKUId !== nextInventoryOrder.id)
+          notifies.push({
+            title: sku.code,
+            title_link: cmsSKULink(sku.id),
+            text: "下記SKUの販売枠を変更しました",
+            color: "good",
+            fields: [
+              { title: "新しい販売枠", value: nextInventoryOrder.title },
+            ],
+          });
 
         await updateSku(sku.code, {
           inventory,
           unshippedOrderCount,
           lastSyncedAt,
           currentInventoryOrderSKU: {
-            ...(nextInventoryOrder?.id
+            ...(nextInventoryOrder.id
               ? { connect: { id: nextInventoryOrder.id } }
               : { disconnect: true }),
           },
