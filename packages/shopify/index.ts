@@ -17,6 +17,7 @@ import {
   getAllVariationSKUData,
   getAllProducts,
   prisma,
+  getAllDuplicatedInventorySKUs,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient, orderAdminLink } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -1343,6 +1344,35 @@ const validateCMSData = async () => {
         color: "danger",
       });
     }
+  }
+
+  const inventorySKUs = await getAllDuplicatedInventorySKUs();
+  for (const inventorySKU of inventorySKUs) {
+    alerts.push({
+      title: `発注データの重複: ${inventorySKU.name}`,
+      text: `発注ID: ${inventorySKU.id}の発注データの中で、同一SKUに対しての内訳が複数登録されているようです。`,
+      color: "danger",
+      fields: [
+        {
+          title: "SKUコード",
+          value: [
+            ...new Set(
+              inventorySKU.ShopifyInventoryOrderSKUs.map(
+                ({ sku }) => sku?.code,
+              ),
+            ),
+          ].join(","),
+        },
+        {
+          title: "発注内訳ID",
+          value: [
+            ...new Set(
+              inventorySKU.ShopifyInventoryOrderSKUs.map(({ id }) => id),
+            ),
+          ].join(","),
+        },
+      ],
+    });
   }
 
   if (alerts.length)

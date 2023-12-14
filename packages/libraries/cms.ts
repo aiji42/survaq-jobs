@@ -154,6 +154,37 @@ export const getAllVariationSKUData = async () => {
   });
 };
 
+export const getAllDuplicatedInventorySKUs = async () => {
+  const data = await prisma.shopifyInventoryOrderSKUs.groupBy({
+    by: ["inventoryOrderId", "skuId"],
+    having: {
+      skuId: {
+        _count: {
+          gt: 1,
+        },
+      },
+    },
+  });
+
+  if (!data.length) return [];
+
+  return prisma.shopifyInventoryOrders.findMany({
+    where: {
+      id: { in: data.map(({ inventoryOrderId }) => inventoryOrderId) },
+    },
+    include: {
+      ShopifyInventoryOrderSKUs: {
+        where: {
+          skuId: { in: data.flatMap(({ skuId }) => skuId ?? []) },
+        },
+        include: {
+          sku: true,
+        },
+      },
+    },
+  });
+};
+
 export const getAllProducts = async () => {
   return prisma.shopifyProducts.findMany({
     take: 1000,

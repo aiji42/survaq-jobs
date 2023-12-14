@@ -557,7 +557,7 @@ model ShopifyInventoryOrderSKUs {
   inventoryOrderId                                                                          Int
   ShopifyCustomSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs ShopifyCustomSKUs[]    @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs")
   ShopifyInventoryOrders                                                                    ShopifyInventoryOrders @relation(fields: [inventoryOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "shopifyinventoryorderskus_inventoryorderid_foreign")
-  ShopifyCustomSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs                      ShopifyCustomSKUs?     @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs", fields: [skuId], references: [id], onUpdate: NoAction, map: "shopifyinventoryorderskus_skuid_foreign")
+  sku                                                                                       ShopifyCustomSKUs?     @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs", fields: [skuId], references: [id], onUpdate: NoAction, map: "shopifyinventoryorderskus_skuid_foreign")
 }
 
 model ShopifyInventoryOrders {
