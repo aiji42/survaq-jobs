@@ -79,7 +79,6 @@ model ShopifyCustomSKUs {
   code                              String                              @unique(map: "shopifycustomskus_code_unique") @db.VarChar(255)
   name                              String                              @db.VarChar(255)
   subName                           String?                             @db.VarChar(255)
-  deliverySchedule                  String?                             @db.VarChar(255)
   inventory                         Int                                 @default(0)
   unshippedOrderCount               Int                                 @default(0)
   lastSyncedAt                      DateTime?                           @db.Timestamp(6)
@@ -125,7 +124,6 @@ model ShopifyProductGroups {
   closeOn              DateTime               @db.Date
   realSupporters       Int                    @default(0)
   title                String?                @unique(map: "shopifyproductgroups_title_unique") @db.VarChar(255)
-  deliverySchedule     String?                @db.VarChar(255)
   GoogleMerchantCenter GoogleMerchantCenter[]
   ShopifyProducts      ShopifyProducts[]
 }
@@ -150,7 +148,6 @@ model ShopifyVariants {
   variantName                       String                              @db.VarChar(255)
   customSelects                     Int?                                @default(0)
   variantId                         String                              @unique(map: "shopifyvariants_variantid_unique") @db.VarChar(255)
-  deliverySchedule                  String?                             @db.VarChar(255)
   skuLabel                          String?                             @db.VarChar(255)
   skusJSON                          String?                             @db.VarChar(255)
   ShopifyProducts                   ShopifyProducts?                    @relation(fields: [product], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "shopifyvariants_product_foreign")
