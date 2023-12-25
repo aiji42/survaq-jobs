@@ -81,19 +81,9 @@ model ShopifyCustomSKUs {
   subName                           String?                             @db.VarChar(255)
   deliverySchedule                  String?                             @db.VarChar(255)
   inventory                         Int                                 @default(0)
-  incomingStockQtyA                 Int?
-  incomingStockDateA                DateTime?                           @db.Date
-  incomingStockQtyB                 Int?
-  incomingStockQtyC                 Int?
-  incomingStockDateB                DateTime?                           @db.Date
-  incomingStockDateC                DateTime?                           @db.Date
-  availableStock                    String                              @default("REAL") @db.VarChar(255)
   unshippedOrderCount               Int                                 @default(0)
   lastSyncedAt                      DateTime?                           @db.Timestamp(6)
   stockBuffer                       Int?                                @default(5)
-  incomingStockDeliveryScheduleA    String?                             @db.VarChar(255)
-  incomingStockDeliveryScheduleB    String?                             @db.VarChar(255)
-  incomingStockDeliveryScheduleC    String?                             @db.VarChar(255)
   skipDeliveryCalc                  Boolean?                            @default(false)
   displayName                       String?                             @db.VarChar(255)
   sortNumber                        Int                                 @default(0)
@@ -557,7 +547,7 @@ model ShopifyInventoryOrderSKUs {
   inventoryOrderId                                                                          Int
   ShopifyCustomSKUs_ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs ShopifyCustomSKUs[]    @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs")
   ShopifyInventoryOrders                                                                    ShopifyInventoryOrders @relation(fields: [inventoryOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "shopifyinventoryorderskus_inventoryorderid_foreign")
-  ShopifyCustomSKUs_ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs                      ShopifyCustomSKUs?     @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs", fields: [skuId], references: [id], onUpdate: NoAction, map: "shopifyinventoryorderskus_skuid_foreign")
+  sku                                                                                       ShopifyCustomSKUs?     @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs", fields: [skuId], references: [id], onUpdate: NoAction, map: "shopifyinventoryorderskus_skuid_foreign")
 }
 
 model ShopifyInventoryOrders {

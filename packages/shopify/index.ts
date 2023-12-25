@@ -17,6 +17,7 @@ import {
   getAllVariationSKUData,
   getAllProducts,
   prisma,
+  getAllDuplicatedInventorySKUs,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient, orderAdminLink } from "./shopify";
 import { storage } from "./cloud-storage";
@@ -1113,17 +1114,28 @@ const skuScheduleShift = async () => {
         sku.inventory !== inventory ||
         sku.unshippedOrderCount !== unshippedOrderCount ||
         sku.lastSyncedAt !== lastSyncedAt ||
-        sku.currentInventoryOrderSKUId !== (nextInventoryOrder?.id ?? null) ||
+        sku.currentInventoryOrderSKUId !== nextInventoryOrder.id ||
         updatableInventoryOrders.length
       ) {
         console.log("update sku:", sku.code);
+
+        if (sku.currentInventoryOrderSKUId !== nextInventoryOrder.id)
+          notifies.push({
+            title: sku.code,
+            title_link: cmsSKULink(sku.id),
+            text: "下記SKUの販売枠を変更しました",
+            color: "good",
+            fields: [
+              { title: "新しい販売枠", value: nextInventoryOrder.title },
+            ],
+          });
 
         await updateSku(sku.code, {
           inventory,
           unshippedOrderCount,
           lastSyncedAt,
           currentInventoryOrderSKU: {
-            ...(nextInventoryOrder?.id
+            ...(nextInventoryOrder.id
               ? { connect: { id: nextInventoryOrder.id } }
               : { disconnect: true }),
           },
@@ -1215,6 +1227,35 @@ const validateCMSData = async () => {
         color: "danger",
       });
     }
+  }
+
+  const inventorySKUs = await getAllDuplicatedInventorySKUs();
+  for (const inventorySKU of inventorySKUs) {
+    alerts.push({
+      title: `発注データの重複: ${inventorySKU.name}`,
+      text: `発注ID: ${inventorySKU.id}の発注データの中で、同一SKUに対しての内訳が複数登録されているようです。`,
+      color: "danger",
+      fields: [
+        {
+          title: "SKUコード",
+          value: [
+            ...new Set(
+              inventorySKU.ShopifyInventoryOrderSKUs.map(
+                ({ sku }) => sku?.code,
+              ),
+            ),
+          ].join(","),
+        },
+        {
+          title: "発注内訳ID",
+          value: [
+            ...new Set(
+              inventorySKU.ShopifyInventoryOrderSKUs.map(({ id }) => id),
+            ),
+          ].join(","),
+        },
+      ],
+    });
   }
 
   if (alerts.length)

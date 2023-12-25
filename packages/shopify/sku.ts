@@ -56,7 +56,12 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
   // 現在の出荷待ち件数を、実在庫 > 発注1 > 発注2 ... の順番に差押件数として振っていく
   const inventoryOrders = [
     // 計算上実在庫を仮想の発注データとして扱う
-    { heldQuantity: 0, quantity: currentInventory, id: null },
+    {
+      heldQuantity: 0,
+      quantity: currentInventory,
+      id: null,
+      ShopifyInventoryOrders: { name: "REAL" },
+    },
     ...sku.inventoryOrderSKUs,
   ].map((order) => {
     const availableQuantity = order.quantity - buffer;
@@ -65,6 +70,7 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
 
     return {
       id: order.id,
+      title: order.ShopifyInventoryOrders.name,
       heldQuantity,
       modified: order.heldQuantity !== heldQuantity,
       available: availableQuantity > heldQuantity,
@@ -83,6 +89,7 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
     ): order is {
       id: number;
       heldQuantity: number;
+      title: string;
       modified: boolean;
       available: boolean;
     } => !!order.id && order.modified,
