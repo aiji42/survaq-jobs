@@ -196,7 +196,6 @@ export const updateSku = async (
   code: string,
   data: Pick<
     Prisma.ShopifyCustomSKUsUpdateInput,
-    | "availableStock"
     | "lastSyncedAt"
     | "unshippedOrderCount"
     | "inventory"

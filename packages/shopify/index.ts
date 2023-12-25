@@ -24,12 +24,9 @@ import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
   cmsSKULink,
-  getCurrentAvailableTotalStockCount,
   getPendingShipmentCounts,
   getShippedCounts,
-  nextAvailableStock,
   updatableInventoryOrdersAndNextInventoryOrder,
-  validateStockQty,
 } from "./sku";
 import { cmsProductLink, cmsVariationLink } from "./productAndVariation";
 
@@ -1073,121 +1070,7 @@ const fundingsOnCMS = async () => {
   );
 };
 
-// TODO: 完全に切り替わったら消す
-// 依存モジュールも
 const skuScheduleShift = async () => {
-  const notifies: MessageAttachment[] = [];
-  const skusOnDB = await getAllSkus();
-  const pendingShipmentCounts = await getPendingShipmentCounts(
-    skusOnDB.map(({ code }) => code),
-  );
-  const shippedCounts = await getShippedCounts(
-    skusOnDB.map(({ code, lastSyncedAt }) => ({
-      code,
-      shippedAt: lastSyncedAt?.toISOString() ?? "2023-03-01",
-    })),
-  );
-
-  for (const sku of skusOnDB) {
-    const pendingShipmentCount =
-      pendingShipmentCounts.find(({ code }) => code === sku.code)?.count ?? 0;
-    const { count: shippedCount = 0, lastShippedAt } =
-      shippedCounts.find(({ code }) => code === sku.code) ?? {};
-    try {
-      // 出荷台数を実在庫数から引く
-      const inventory = sku.inventory - shippedCount;
-
-      if (inventory < 0) {
-        notifies.push({
-          title: sku.code,
-          title_link: cmsSKULink(sku.id),
-          text: "在庫数がマイナスになっています",
-          color: "danger",
-          fields: [{ title: "inventory", value: String(inventory) }],
-        });
-      }
-
-      // 現在の販売可能在庫数 (実在庫+現在枠より若い枠の個数+現在枠の個数)
-      const currentAvailableStockCount = getCurrentAvailableTotalStockCount(
-        inventory,
-        sku,
-      );
-      // 現在枠の在庫数 - 未出荷件数 がバッファ数を下回ったら枠をずらす
-      let availableStock = sku.availableStock;
-
-      if (
-        currentAvailableStockCount - pendingShipmentCount <=
-        (sku.stockBuffer ?? 0)
-      ) {
-        if (currentAvailableStockCount - pendingShipmentCount < 0) {
-          notifies.push({
-            title: sku.code,
-            title_link: cmsSKULink(sku.id),
-            text: "多売が発生したようです",
-            color: "warning",
-            fields: [{ title: "現在販売枠", value: sku.availableStock }],
-          });
-        }
-
-        const newAvailableStock = nextAvailableStock(availableStock);
-        availableStock = newAvailableStock;
-        validateStockQty(newAvailableStock, sku);
-        notifies.push({
-          title: sku.code,
-          title_link: cmsSKULink(sku.id),
-          text: "下記SKUの販売枠を変更しました",
-          color: "good",
-          fields: [{ title: "新しい販売枠", value: availableStock }],
-        });
-      }
-
-      const data = {
-        inventory,
-        availableStock,
-        unshippedOrderCount: pendingShipmentCount,
-        // lastSyncedAtという名前だが、最終出荷日時を入れる
-        lastSyncedAt: lastShippedAt?.value ?? sku.lastSyncedAt,
-      };
-      if (
-        // sku.inventory !== data.inventory ||
-        sku.availableStock !== data.availableStock
-        // sku.unshippedOrderCount !== data.unshippedOrderCount ||
-        // sku.lastSyncedAt !== data.lastSyncedAt
-      ) {
-        console.log("update sku:", sku.code, data);
-        await updateSku(sku.code, {
-          // inventory: data.inventory,
-          availableStock: data.availableStock,
-          // unshippedOrderCount: data.unshippedOrderCount,
-          // lastSyncedAt: data.lastSyncedAt
-        });
-      }
-    } catch (e) {
-      if (!(e instanceof Error)) {
-        console.error(e);
-        throw e;
-      }
-      console.log("skuScheduleShift", sku.code, e.message);
-      notifies.push({
-        title: sku.code,
-        ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
-        color: "danger",
-        text: e.message,
-        fields: [{ title: "現在販売枠", value: sku.availableStock }],
-      });
-    }
-  }
-
-  if (notifies.length)
-    await postMessage(
-      notifySlackChannel,
-      "SKU調整処理通知",
-      notifies.map((notify) => ({ ...notify, text: `[旧]${notify.text}` })),
-    );
-};
-
-// TODO: 完全に切り替わったら名前変更
-const skuScheduleShiftNew = async () => {
   const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
   const pendingShipmentCounts = await getPendingShipmentCounts(
@@ -1403,8 +1286,6 @@ const main = async () => {
   await ordersAndLineItems();
   console.log("Shift sku schedule");
   await skuScheduleShift();
-  console.log("Shift sku schedule by inventory order");
-  await skuScheduleShiftNew();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
   console.log("Sync fundings on cms");
