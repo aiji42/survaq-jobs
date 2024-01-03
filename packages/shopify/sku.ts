@@ -45,10 +45,12 @@ export const getShippedCounts = async (
 export const cmsSKULink = (id: number) =>
   `${DIRECTUS_URL}/admin/content/ShopifyCustomSKUs/${id}`;
 
+export type SKU = Awaited<ReturnType<typeof getAllSkus>>[number];
+
 export const updatableInventoryOrdersAndNextInventoryOrder = (
   currentInventory: number,
   pendingShipmentCount: number,
-  sku: Awaited<ReturnType<typeof getAllSkus>>[number],
+  sku: SKU,
 ) => {
   const buffer = sku.stockBuffer ?? 0;
   let rest = pendingShipmentCount;
@@ -58,14 +60,21 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
     // 計算上実在庫を仮想の発注データとして扱う
     {
       heldQuantity: 0,
-      quantity: currentInventory,
+      availableQuantity:
+        currentInventory -
+        (currentInventory > 0
+          ? Math.max(buffer, Math.ceil(currentInventory * sku.faultyRate))
+          : buffer),
       id: null,
       ShopifyInventoryOrders: { name: "REAL" },
     },
-    ...sku.inventoryOrderSKUs,
+    ...sku.inventoryOrderSKUs.map((order) => ({
+      ...order,
+      availableQuantity:
+        order.quantity - Math.ceil(order.quantity * sku.faultyRate),
+    })),
   ].map((order) => {
-    const availableQuantity = order.quantity - buffer;
-    const heldQuantity = Math.min(rest, availableQuantity);
+    const heldQuantity = Math.min(rest, order.availableQuantity);
     rest = Math.max(0, rest - heldQuantity);
 
     return {
@@ -73,7 +82,7 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
       title: order.ShopifyInventoryOrders.name,
       heldQuantity,
       modified: order.heldQuantity !== heldQuantity,
-      available: availableQuantity > heldQuantity,
+      available: order.availableQuantity > heldQuantity,
     };
   });
 
