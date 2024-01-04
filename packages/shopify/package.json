@@ -12,7 +12,8 @@
     "@tsconfig/node18": "^18.2.2",
     "@types/node": "^20.8.2",
     "tsx": "^3.13.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.1"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.1.0",
