@@ -87,6 +87,7 @@ model ShopifyCustomSKUs {
   displayName                       String?                             @db.VarChar(255)
   sortNumber                        Int                                 @default(0)
   currentInventoryOrderSKUId        Int?
+  faultyRate                        Float                               @default(0) @db.Real
   currentInventoryOrderSKU          ShopifyInventoryOrderSKUs?          @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs", fields: [currentInventoryOrderSKUId], references: [id], onUpdate: NoAction, map: "shopifycustomskus_currentinventoryorderskuid_foreign")
   inventoryOrderSKUs                ShopifyInventoryOrderSKUs[]         @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs")
   ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
