@@ -8,8 +8,6 @@ import {
   truncateTable,
   getShopifyProductGroups,
   getGoogleMerchantCenter,
-  updateShopifyProductGroups,
-  getFundingsByProductGroup,
   updateSku,
   postMessage,
   MessageAttachment,
@@ -1051,25 +1049,6 @@ export const smartShoppingPerformance = async () => {
   }
 };
 
-const fundingsOnCMS = async () => {
-  const data = await getShopifyProductGroups();
-  const fundings = await getFundingsByProductGroup();
-  await Promise.all(
-    data.map(async ({ id, title }) => {
-      const funding = fundings.find(
-        ({ productGroupId }) => String(id) === productGroupId,
-      );
-      if (funding) {
-        console.log("update fundings:", title);
-        await updateShopifyProductGroups(id, {
-          realTotalPrice: funding.totalPrice,
-          realSupporters: funding.supporters,
-        });
-      }
-    }),
-  );
-};
-
 const skuScheduleShift = async () => {
   const notifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
@@ -1288,8 +1267,6 @@ const main = async () => {
   await skuScheduleShift();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
-  console.log("Sync fundings on cms");
-  await fundingsOnCMS();
 };
 main()
   .then(() => {

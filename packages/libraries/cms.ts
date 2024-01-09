@@ -213,17 +213,3 @@ export const updateSku = async (
     });
   }
 };
-
-export const updateShopifyProductGroups = async (
-  id: number,
-  data: { realTotalPrice: number; realSupporters: number },
-) => {
-  if (DRY_RUN) {
-    console.log("DRY RUN: update ShopifyProductGroups id:", id, data);
-  } else {
-    await prisma.shopifyProductGroups.update({
-      data,
-      where: { id },
-    });
-  }
-};

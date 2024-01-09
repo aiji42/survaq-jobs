@@ -203,22 +203,3 @@ export const getLatestTimeAt = async (
   const latest = res[0][column].value;
   return latest.replace(/\.\d{3}Z$/, "Z");
 };
-
-export const getFundingsByProductGroup = async (): Promise<
-  { totalPrice: number; supporters: number; productGroupId: string }[]
-> => {
-  const [res] = await client.query({
-    query: `
-      SELECT
-        SUM(original_total_price) AS totalPrice,
-        COUNT(distinct order_id) AS supporters,
-        p.productGroupId
-      FROM shopify.line_items l
-      LEFT JOIN shopify.products p
-      ON l.product_id = p.id
-      WHERE p.productGroupId IS NOT NULL
-      GROUP BY p.productGroupId
-    `,
-  });
-  return res;
-};
