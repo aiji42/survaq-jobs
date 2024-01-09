@@ -119,11 +119,6 @@ model ShopifyProductGroups {
   id                   Int                    @id @default(autoincrement())
   createdAt            DateTime?              @db.Timestamptz(6)
   updatedAt            DateTime?              @db.Timestamptz(6)
-  totalPrice           Int?                   @default(0)
-  realTotalPrice       Int                    @default(0)
-  supporters           Int?                   @default(0)
-  closeOn              DateTime               @db.Date
-  realSupporters       Int                    @default(0)
   title                String?                @unique(map: "shopifyproductgroups_title_unique") @db.VarChar(255)
   GoogleMerchantCenter GoogleMerchantCenter[]
   ShopifyProducts      ShopifyProducts[]
