@@ -14,10 +14,9 @@ import {
   getAllSkus,
   getAllVariationSKUData,
   getAllProducts,
-  prisma,
   getAllDuplicatedInventorySKUs,
 } from "@survaq-jobs/libraries";
-import { createClient as createShopifyClient, orderAdminLink } from "./shopify";
+import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
 import {
@@ -299,6 +298,10 @@ const orderListQuery = (query: string, cursor: null | string) => `{
         id
         name
         note
+        customAttributes {
+          key
+          value
+        }
         display_financial_status: displayFinancialStatus
         display_fulfillment_status: displayFulfillmentStatus
         fulfillments {
@@ -443,6 +446,7 @@ type OrderNode = {
   id: string;
   name: string;
   note: string | null;
+  customAttributes: Array<{ key: string; value: string }>;
   lineItems: EdgesNode<LineItemNode>;
   customerJourneySummary?: {
     firstVisit?: {
@@ -482,6 +486,7 @@ type Fulfillment = {
 
 type OrderRecord = Omit<
   OrderNode,
+  | "customAttributes"
   | "lineItems"
   | "customerJourneySummary"
   | "totalPriceSet"
@@ -529,25 +534,13 @@ type OderSkuRecord = {
   quantity: number;
 };
 
-type UnConnectedSkuOrder = Pick<
-  OrderNode,
-  | "id"
-  | "name"
-  | "display_financial_status"
-  | "display_fulfillment_status"
-  | "created_at"
-  | "note"
-> & {
-  needAlert: boolean;
-  lineItems: Array<Pick<LineItemNode, "id" | "name"> & { _skus: string }>;
-};
-
 export const ordersAndLineItems = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestTimeAt(
-    "orders",
-    "shopify",
-    "updated_at",
-  )}'`;
+  const query = `updated_at:>'2024-01-14T14:00:00Z'`;
+  // const query = `updated_at:>'${await getLatestTimeAt(
+  //   "orders",
+  //   "shopify",
+  //   "updated_at",
+  // )}'`;
   console.log("Graphql query: ", query);
 
   let hasNext = true;
@@ -556,7 +549,6 @@ export const ordersAndLineItems = async (): Promise<void> => {
   let lineItems: LineItemRecord[] = [];
   // 最終的に sliceByNumber して、oder_id で消すので、sliceした結果でoderが跨がらないようにする
   let orderSkus: OderSkuRecord[][] = [];
-  const unConnectedSkuOrders: Record<string, UnConnectedSkuOrder> = {};
 
   while (hasNext) {
     const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
@@ -565,7 +557,6 @@ export const ordersAndLineItems = async (): Promise<void> => {
     hasNext = data.orders.pageInfo.hasNextPage;
 
     const customVisitByOrder: Record<string, CustomVisit> = {};
-    const variantIds: string[] = [];
 
     lineItems = [
       ...lineItems,
@@ -589,10 +580,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
             if (key === "_utm_term") customVisit.utm_term = value;
           });
           customVisitByOrder[node.id] = customVisit;
-          if (item.variant?.id)
-            variantIds.push(
-              item.variant.id.replace("gid://shopify/ProductVariant/", ""),
-            );
+
           return {
             ...item,
             order_id: node.id,
@@ -661,63 +649,23 @@ export const ordersAndLineItems = async (): Promise<void> => {
       }),
     ];
 
-    const variantAndSKUMap = (
-      await prisma.shopifyVariants.findMany({
-        where: { variantId: { in: [...new Set(variantIds)] } },
-      })
-    ).reduce<Record<string, string | null>>(
-      (res, variant) => ({ ...res, [variant.variantId]: variant.skusJSON }),
-      {},
-    );
-
     orderSkus = [
       ...orderSkus,
       ...data.orders.edges.map(({ node }) => {
+        const { value = "[]" } =
+          node.customAttributes.find(({ key }) => key === "__line_items") ?? {};
+        const skusByLineItemId = Object.fromEntries(
+          (
+            JSON.parse(value) as Array<{
+              id: number;
+              name: string;
+              _skus: string[];
+            }>
+          ).map(({ id, _skus }) => [`gid://shopify/LineItem/${id}`, _skus]),
+        );
+
         return node.lineItems.edges.flatMap(({ node: item }) => {
-          // 注文発生時に_skusにデータがつけられなかったものために、メモにデータを残して上書きできるようにする
-          const skusOnMemo = parseSKUsInMemo(node.note).find(
-            ({ lineItemId }) => lineItemId === item.id,
-          );
-
-          const _skus = skusOnMemo?._skus
-            ? JSON.stringify(skusOnMemo._skus)
-            : item.customAttributes.find(({ key }) => key === "_skus")?.value;
-
-          let completedSkus = _skus;
-          // variantからSKUが補完できるなら、それでカバーする
-          if ((!completedSkus || completedSkus === "[]") && item.variant?.id) {
-            completedSkus =
-              variantAndSKUMap[
-                item.variant.id.replace("gid://shopify/ProductVariant/", "")
-              ] ?? undefined;
-          }
-
-          // 注文のメモ欄にデータを残す(variantは消える可能性があるので、補完できたしてもメモに残して次回以降はその情報を優先させる)
-          // かつ、variantで補完できなかったものをアラートとして通知する
-          // `_skus === "[]" && completedSkus === undefined`この条件は、メモがすでにあるがそのメモ上でSKUが指定されておらず、更にバリデーション側のSKUの紐付けがまだの状態。つまりシステムが自動でコメントは残したが要対応な状態
-          if (
-            (!_skus || (_skus === "[]" && completedSkus === undefined)) &&
-            !node.closed &&
-            !node.cancelled_at &&
-            node.display_fulfillment_status === "UNFULFILLED"
-          ) {
-            const unconnected = unConnectedSkuOrders[node.id];
-            if (unconnected) {
-              unconnected.lineItems.push({
-                ...item,
-                _skus: completedSkus ?? "[]",
-              });
-              unconnected.needAlert = unconnected.needAlert || !completedSkus;
-            } else {
-              unConnectedSkuOrders[node.id] = {
-                needAlert: !completedSkus,
-                ...node,
-                lineItems: [{ ...item, _skus: completedSkus ?? "[]" }],
-              };
-            }
-          }
-
-          const skus: string[] = JSON.parse(completedSkus ?? "[]");
+          const skus = skusByLineItemId[item.id] ?? [];
           const quantityBySku = skus.reduce<Record<string, number>>(
             (res, sku) => {
               return { ...res, [sku]: (res[sku] ?? 0) + 1 };
@@ -859,130 +807,6 @@ export const ordersAndLineItems = async (): Promise<void> => {
       items,
     );
   }
-
-  if (Object.values(unConnectedSkuOrders).length) {
-    for (const order of Object.values(unConnectedSkuOrders)) {
-      const newSkus = order.lineItems.map(({ id, name, _skus }) => ({
-        lineItemId: id,
-        name,
-        _skus: JSON.parse(_skus),
-      }));
-      const newNote = stringifySKUsForMemo(order.note ?? "", newSkus);
-      const param = {
-        note: newNote,
-      };
-      console.log("update order memo for complete sku", order.name, param);
-      if (!process.env["DRY_RUN"])
-        await shopify.order.update(
-          Number(order.id.replace("gid://shopify/Order/", "")),
-          param,
-        );
-    }
-
-    const needNotifies = Object.values(unConnectedSkuOrders).filter(
-      ({ needAlert }) => needAlert,
-    );
-    if (needNotifies.length)
-      await postMessage(
-        notifySlackChannel,
-        "SKU情報の無いオープンな注文が処理されています。注文時に頻発するようであればシステムの問題の可能性があります。\n注文情報のメモ欄にsku情報を付与してください。",
-        needNotifies.map(
-          ({
-            name,
-            id,
-            created_at,
-            display_fulfillment_status,
-            display_financial_status,
-          }) => ({
-            title: `注文番号 ${name}`,
-            title_link: orderAdminLink(id),
-            color: "warning",
-            fields: [
-              {
-                short: true,
-                title: "購入日時(UTC)",
-                value: created_at ?? "-",
-              },
-              {
-                short: true,
-                title: "決済ステータス",
-                value: display_financial_status,
-              },
-              {
-                short: true,
-                title: "配送ステータス",
-                value: display_fulfillment_status,
-              },
-            ],
-          }),
-        ),
-      );
-  }
-};
-
-const parseSKUsInMemo = (text: string | null | undefined) => {
-  return (
-    text
-      ?.match(/{[^}]+}/g)
-      ?.reduce<Array<{ lineItemId: string; _skus: string[] }>>((res, text) => {
-        try {
-          const json = JSON.parse(text);
-          if (
-            !!json &&
-            typeof json === "object" &&
-            typeof json.lineItemId === "string" &&
-            Array.isArray(json._skus)
-          )
-            return [...res, json];
-        } catch {}
-        return res;
-      }, []) ?? []
-  );
-};
-
-const stringifySKUsForMemo = (
-  inputText: string,
-  newSkus: Array<{ lineItemId: string; name: string; _skus: string[] }>,
-): string => {
-  const originalSkus = parseSKUsInMemo(inputText);
-
-  if (!originalSkus.length) {
-    return (
-      inputText +
-      "\n" +
-      newSkus.map((obj) => JSON.stringify(obj, null, 2)).join("\n")
-    );
-  }
-
-  const updatedSkus = originalSkus.map((originalSku) => {
-    return (
-      newSkus.find(({ lineItemId }) => lineItemId === originalSku.lineItemId) ??
-      originalSku
-    );
-  });
-
-  const insertableSkus = newSkus.filter(
-    (sku) =>
-      !originalSkus.some(({ lineItemId }) => lineItemId === sku.lineItemId),
-  );
-
-  const updatedJsonStrings = [...updatedSkus, ...insertableSkus].map((obj) =>
-    JSON.stringify(obj, null, 2),
-  );
-  const updatedText = inputText.replace(
-    /{[^}]+}/g,
-    () => updatedJsonStrings.shift()!,
-  );
-
-  if (insertableSkus.length > 0) {
-    return (
-      updatedText +
-      "\n" +
-      insertableSkus.map((obj) => JSON.stringify(obj, null, 2)).join("\n")
-    );
-  }
-
-  return updatedText;
 };
 
 export const smartShoppingPerformance = async () => {
