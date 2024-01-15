@@ -535,12 +535,11 @@ type OderSkuRecord = {
 };
 
 export const ordersAndLineItems = async (): Promise<void> => {
-  const query = `updated_at:>'2024-01-14T14:00:00Z'`;
-  // const query = `updated_at:>'${await getLatestTimeAt(
-  //   "orders",
-  //   "shopify",
-  //   "updated_at",
-  // )}'`;
+  const query = `updated_at:>'${await getLatestTimeAt(
+    "orders",
+    "shopify",
+    "updated_at",
+  )}'`;
   console.log("Graphql query: ", query);
 
   let hasNext = true;
