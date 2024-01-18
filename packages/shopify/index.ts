@@ -92,11 +92,9 @@ export const products = async (): Promise<void> => {
         id: String(id),
         title: title as string,
         updatedAt,
-        productIds: Array.isArray(ShopifyProducts)
-          ? ShopifyProducts.map(
-              ({ productId }) => `gid://shopify/Product/${productId}`,
-            )
-          : [],
+        productIds: ShopifyProducts.map(
+          ({ productId }) => `gid://shopify/Product/${productId}`,
+        ),
       })) ?? [];
 
   const currentSyncedAt = new Date().toISOString();
@@ -153,8 +151,9 @@ export const products = async (): Promise<void> => {
 
   for (const productIdAndGroup of productIdAndGroupMappings) {
     if (
-      productIdAndGroup.updatedAt &&
-      productIdAndGroup.updatedAt < new Date(lastSyncedAt)
+      (productIdAndGroup.updatedAt &&
+        productIdAndGroup.updatedAt < new Date(lastSyncedAt)) ||
+      productIdAndGroup.productIds.length < 1
     )
       continue;
     console.log("update products group mapping:", productIdAndGroup.title);
