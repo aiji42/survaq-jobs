@@ -122,11 +122,18 @@ export const getAllSkus = async () => {
         include: {
           ShopifyInventoryOrders: true,
         },
-        orderBy: {
-          ShopifyInventoryOrders: {
-            deliveryDate: "asc",
+        orderBy: [
+          {
+            ShopifyInventoryOrders: {
+              deliveryDate: "asc",
+            },
           },
-        },
+          {
+            ShopifyInventoryOrders: {
+              id: "asc",
+            },
+          },
+        ],
       },
       currentInventoryOrderSKU: {
         include: {
