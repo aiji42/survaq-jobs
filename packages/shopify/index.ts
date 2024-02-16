@@ -337,6 +337,16 @@ const orderListQuery = (query: string, cursor: null | string) => `{
             amount
           }
         }
+        totalRefundedSet {
+          shopMoney {
+            amount
+          }
+        }
+        totalRefundedShippingSet {
+          shopMoney {
+            amount
+          }
+        }
         taxes_included: taxesIncluded
         subtotal_line_item_quantity: subtotalLineItemsQuantity
         closed_at: closedAt
@@ -471,6 +481,8 @@ type OrderNode = {
   subtotalPriceSet: ShopMoney;
   totalShippingPriceSet: ShopMoney;
   totalTaxSet: ShopMoney;
+  totalRefundedSet: ShopMoney;
+  totalRefundedShippingSet: ShopMoney;
   taxes_included: boolean;
   subtotal_line_item_quantity: number;
   closed_at: string | null;
@@ -493,6 +505,8 @@ type OrderRecord = Omit<
   | "subtotalPriceSet"
   | "totalShippingPriceSet"
   | "totalTaxSet"
+  | "totalRefundedSet"
+  | "totalRefundedShippingSet"
   | "fulfillments"
 > & {
   total_price: number;
@@ -500,6 +514,8 @@ type OrderRecord = Omit<
   without_tax_total_price: number;
   total_shopping_price: number;
   total_tax: number;
+  total_refunded_price: number;
+  total_refunded_shipping_price: number;
   landing_page: string | null;
   referrer_url: string | null;
   source: string | null;
@@ -616,6 +632,10 @@ export const ordersAndLineItems = async (): Promise<void> => {
             Number(node.totalPriceSet.shopMoney.amount) -
             Number(node.totalTaxSet.shopMoney.amount),
           total_tax: Number(node.totalTaxSet.shopMoney.amount),
+          total_refunded_price: Number(node.totalRefundedSet.shopMoney.amount),
+          total_refunded_shipping_price: Number(
+            node.totalRefundedShippingSet.shopMoney.amount,
+          ),
           landing_page: visit?.landingPage ?? null,
           referrer_url: visit?.referrerUrl ?? null,
           fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
@@ -726,6 +746,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
         "total_price",
         "subtotal_price",
         "total_shopping_price",
+        "total_refunded_price",
+        "total_refunded_shipping_price",
         "without_tax_total_price",
         "total_tax",
         "taxes_included",
