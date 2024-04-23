@@ -43,7 +43,8 @@ type WithPageInfo<T> = T & {
 
 const shopify = createShopifyClient();
 
-const notifySlackChannel = "#notify-cms";
+const alertNotifySlackChannel = "#notify-cms";
+const infoNotifySlackChannel = "#notify-cms-info";
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${
@@ -895,7 +896,8 @@ export const smartShoppingPerformance = async () => {
 };
 
 const skuScheduleShift = async () => {
-  const notifies: MessageAttachment[] = [];
+  const alertNotifies: MessageAttachment[] = [];
+  const infoNotifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
   const pendingShipmentCounts = await getPendingShipmentCounts(
     skusOnDB.map(({ code }) => code),
@@ -917,7 +919,7 @@ const skuScheduleShift = async () => {
     // 出荷台数を実在庫数から引く(=最新の在庫数)
     const inventory = sku.inventory - shippedCount;
     if (inventory < 0) {
-      notifies.push({
+      alertNotifies.push({
         title: sku.code,
         title_link: cmsSKULink(sku.id),
         text: "在庫数がマイナスになっています",
@@ -944,7 +946,7 @@ const skuScheduleShift = async () => {
         console.log("update sku:", sku.code);
 
         if (sku.currentInventoryOrderSKUId !== nextInventoryOrder.id)
-          notifies.push({
+          infoNotifies.push({
             title: sku.code,
             title_link: cmsSKULink(sku.id),
             text: "下記SKUの販売枠を変更しました",
@@ -982,7 +984,7 @@ const skuScheduleShift = async () => {
         throw e;
       }
       console.log("skuScheduleShift", sku.code, e.message);
-      notifies.push({
+      alertNotifies.push({
         title: sku.code,
         ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
         color: "danger",
@@ -999,8 +1001,14 @@ const skuScheduleShift = async () => {
     }
   }
 
-  if (notifies.length)
-    await postMessage(notifySlackChannel, "SKU調整処理通知", notifies);
+  if (alertNotifies.length)
+    await postMessage(
+      alertNotifySlackChannel,
+      "SKU調整処理通知",
+      alertNotifies,
+    );
+  if (infoNotifies.length)
+    await postMessage(infoNotifySlackChannel, "SKU調整処理通知", alertNotifies);
 };
 
 const validateCMSData = async () => {
@@ -1085,7 +1093,7 @@ const validateCMSData = async () => {
   if (alerts.length)
     for (const messageAttachments of sliceByNumber(alerts, 10)) {
       await postMessage(
-        notifySlackChannel,
+        alertNotifySlackChannel,
         "設定値に問題が発生しています。確認してください。",
         messageAttachments,
       );
