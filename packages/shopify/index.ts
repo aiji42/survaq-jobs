@@ -348,7 +348,7 @@ const orderListQuery = (query: string, cursor: null | string) => `{
           }
         }
         taxes_included: taxesIncluded
-        subtotal_line_item_quantity: subtotalLineItemsQuantity
+        subtotal_line_item_quantity: currentSubtotalLineItemsQuantity
         closed_at: closedAt
         cancelled_at: cancelledAt
         created_at: createdAt
@@ -358,7 +358,7 @@ const orderListQuery = (query: string, cursor: null | string) => `{
             node {
               id
               name
-              quantity
+              quantity: currentQuantity
               originalTotalSet {
                 shopMoney {
                   amount
