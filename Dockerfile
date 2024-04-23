@@ -1,4 +1,4 @@
-FROM node:18.13-bullseye-slim as base
+FROM node:20.12-bullseye-slim as base
 
 ENV TZ=Asia/Tokyo
 
