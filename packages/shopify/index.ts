@@ -588,10 +588,9 @@ const orderNodeToCustomVisit = (node: OrderNode): CustomVisit => {
     utm_term: null,
   };
 
-  // なぜこのような実装なっているのかは良くわからんが、元の実装は最後のcustomVisitだけを採用していたので、それに合わせる
   node.lineItems.edges
-    .at(-1)
-    ?.node.customAttributes.forEach(({ key, value }) => {
+    .flatMap(({ node: { customAttributes } }) => customAttributes)
+    .forEach(({ key, value }) => {
       if (!value) return;
       if (key === "_source") customVisit.source = value;
       if (key === "_utm_source") customVisit.utm_source = value;
@@ -662,6 +661,15 @@ const orderNodeToOrderSkuRecords = (node: OrderNode): OderSkuRecord[] => {
       }>
     ).map(({ id, _skus }) => [`gid://shopify/LineItem/${id}`, _skus]),
   );
+  // 新方式のSKUに対応していない注文データは下記旧式で補完する
+  if (Object.keys(skusByLineItemId).length === 0) {
+    node.lineItems.edges.forEach(({ node }) => {
+      const value = node.customAttributes.find(({ key }) => key === "_skus")
+        ?.value;
+      if (value) skusByLineItemId[node.id] = JSON.parse(value);
+    });
+  }
+  // ここまで旧式の補完
 
   return node.lineItems.edges.flatMap(({ node: item }) => {
     const skus = skusByLineItemId[item.id] ?? [];
@@ -703,7 +711,7 @@ export const orderAndLineItemsByOrderId = async (id: string) => {
   const orderSkuRecords = orderNodeToOrderSkuRecords(data.order);
 
   await Promise.all([
-    async () => {
+    (async () => {
       await deleteByField("orders", "shopify", "id", [orderRecord.id]);
       await insertRecords(
         "orders",
@@ -740,8 +748,8 @@ export const orderAndLineItemsByOrderId = async (id: string) => {
         ],
         [orderRecord],
       );
-    },
-    async () => {
+    })(),
+    (async () => {
       if (lineItemRecords.length) {
         await deleteByField(
           "line_items",
@@ -768,12 +776,15 @@ export const orderAndLineItemsByOrderId = async (id: string) => {
           lineItemRecords,
         );
       }
-    },
-    async () => {
+    })(),
+    (async () => {
       if (orderSkuRecords.length) {
-        await deleteByField("order_skus", "shopify", "order_id", [
-          orderRecord.id,
-        ]);
+        await deleteByField(
+          "order_skus",
+          "shopify",
+          "order_id",
+          orderSkuRecords.map(({ order_id }) => order_id),
+        );
         await insertRecords(
           "order_skus",
           "shopify",
@@ -792,7 +803,7 @@ export const orderAndLineItemsByOrderId = async (id: string) => {
           orderSkuRecords,
         );
       }
-    },
+    })(),
   ]);
 };
 
@@ -847,7 +858,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
   }
 
   await Promise.all([
-    async () => {
+    (async () => {
       for (const items of sliceByNumber(orders, 200)) {
         if (items.length < 1) continue;
         console.log("orders records:", items.length);
@@ -893,8 +904,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
           items,
         );
       }
-    },
-    async () => {
+    })(),
+    (async () => {
       for (const items of sliceByNumber(lineItems, 200)) {
         if (items.length < 1) continue;
         console.log("line_items records:", items.length);
@@ -923,8 +934,8 @@ export const ordersAndLineItems = async (): Promise<void> => {
           items,
         );
       }
-    },
-    async () => {
+    })(),
+    (async () => {
       // order_id を使って消すので、sliceByNumberしたときに、order_idがループ間で跨がらない等に、orderごとにまとめてある
       for (const orderSkuGroups of sliceByNumber(orderSkus, 100)) {
         const items = orderSkuGroups.flat();
@@ -954,7 +965,7 @@ export const ordersAndLineItems = async (): Promise<void> => {
           items,
         );
       }
-    },
+    })(),
   ]);
 };
 
@@ -1262,11 +1273,14 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
   await ordersAndLineItems();
-  const ids: string[] = []; // ここに対象のorder idを入れる
+  const ids: string[] = []; // ここに個別に更新したいorder idを入れる
   for (const id of ids) {
-    console.log("Sync orders, lineItems and skus", id);
+    console.log(
+      "Sync orders, lineItems and skus",
+      id,
+      `(${ids.indexOf(id) + 1}/${ids.length})`,
+    );
     await orderAndLineItemsByOrderId(id);
-    await sleep(2);
   }
   console.log("Shift sku schedule");
   await skuScheduleShift();
