@@ -290,118 +290,127 @@ export const variants = async (): Promise<void> => {
   }
 };
 
+const orderNode = `
+{
+  id
+  name
+  note
+  customAttributes {
+    key
+    value
+  }
+  display_financial_status: displayFinancialStatus
+  display_fulfillment_status: displayFulfillmentStatus
+  fulfillments {
+    createdAt
+    fulfillmentLineItems(first: 5) {
+      edges {
+        node {
+          lineItem {
+            id
+          }
+        }
+      }
+    }
+  }
+  closed
+  totalPriceSet {
+    shopMoney {
+      amount
+    }
+  }
+  subtotalPriceSet {
+    shopMoney {
+      amount
+    }
+  }
+  totalShippingPriceSet {
+    shopMoney {
+      amount
+    }
+  }
+  totalTaxSet {
+    shopMoney {
+      amount
+    }
+  }
+  totalRefundedSet {
+    shopMoney {
+      amount
+    }
+  }
+  totalRefundedShippingSet {
+    shopMoney {
+      amount
+    }
+  }
+  taxes_included: taxesIncluded
+  subtotal_line_item_quantity: currentSubtotalLineItemsQuantity
+  closed_at: closedAt
+  cancelled_at: cancelledAt
+  created_at: createdAt
+  updated_at: updatedAt
+  lineItems(first: 5) {
+    edges {
+      node {
+        id
+        name
+        quantity: currentQuantity
+        originalTotalSet {
+          shopMoney {
+            amount
+          }
+        }
+        taxLines(first: 1) {
+          priceSet {
+            shopMoney {
+              amount
+            }
+          }
+        }
+        variant {
+          id
+          title
+        }
+        product {
+          id
+        }
+        customAttributes {
+          key
+          value
+        }
+      }
+    }
+  }
+  customerJourneySummary {
+    firstVisit {
+      landingPage
+      referrerUrl
+      source
+      sourceType
+      utmParameters {
+        source
+        medium
+        campaign
+        content
+        term
+      }
+    }
+  }
+}
+`;
+
+const order = (id: string) => `{
+  order(id: "gid://shopify/Order/${id}") ${orderNode}
+}
+`;
+
 const orderListQuery = (query: string, cursor: null | string) => `{
   orders(first: 10, query: "${query}" after: ${
     cursor ? `"${cursor}"` : "null"
   }) {
     edges {
-      node {
-        id
-        name
-        note
-        customAttributes {
-          key
-          value
-        }
-        display_financial_status: displayFinancialStatus
-        display_fulfillment_status: displayFulfillmentStatus
-        fulfillments {
-          createdAt
-          fulfillmentLineItems(first: 5) {
-            edges {
-              node {
-                lineItem {
-                  id
-                }
-              }
-            }
-          }
-        }
-        closed
-        totalPriceSet {
-          shopMoney {
-            amount
-          }
-        }
-        subtotalPriceSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalShippingPriceSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalTaxSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalRefundedSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalRefundedShippingSet {
-          shopMoney {
-            amount
-          }
-        }
-        taxes_included: taxesIncluded
-        subtotal_line_item_quantity: currentSubtotalLineItemsQuantity
-        closed_at: closedAt
-        cancelled_at: cancelledAt
-        created_at: createdAt
-        updated_at: updatedAt
-        lineItems(first: 5) {
-          edges {
-            node {
-              id
-              name
-              quantity: currentQuantity
-              originalTotalSet {
-                shopMoney {
-                  amount
-                }
-              }
-              taxLines(first: 1) {
-                priceSet {
-                  shopMoney {
-                    amount
-                  }
-                }
-              }
-              variant {
-                id
-                title
-              }
-              product {
-                id
-              }
-              customAttributes {
-                key
-                value
-              }
-            }
-          }
-        }
-        customerJourneySummary {
-          firstVisit {
-            landingPage
-            referrerUrl
-            source
-            sourceType
-            utmParameters {
-              source
-              medium
-              campaign
-              content
-              term
-            }
-          }
-        }
-      }
+      node ${orderNode}
       cursor
     }
     pageInfo {
@@ -551,6 +560,242 @@ type OderSkuRecord = {
   quantity: number;
 };
 
+const orderNodeToLineItemRecords = (orderNode: OrderNode): LineItemRecord[] => {
+  return orderNode.lineItems.edges.map(({ node: item }) => {
+    return {
+      ...item,
+      order_id: orderNode.id,
+      product_id: item.product?.id ?? null,
+      variant_id: item.variant?.id ?? null,
+      original_total_price: Number(item.originalTotalSet.shopMoney.amount),
+      tax_price: Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
+      without_tax_total_price:
+        Number(item.originalTotalSet.shopMoney.amount) -
+        Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
+      delivery_schedule: null,
+      skus: null,
+    };
+  });
+};
+
+const orderNodeToCustomVisit = (node: OrderNode): CustomVisit => {
+  const customVisit: CustomVisit = {
+    source: null,
+    utm_source: null,
+    utm_medium: null,
+    utm_campaign: null,
+    utm_content: null,
+    utm_term: null,
+  };
+
+  // なぜこのような実装なっているのかは良くわからんが、元の実装は最後のcustomVisitだけを採用していたので、それに合わせる
+  node.lineItems.edges
+    .at(-1)
+    ?.node.customAttributes.forEach(({ key, value }) => {
+      if (!value) return;
+      if (key === "_source") customVisit.source = value;
+      if (key === "_utm_source") customVisit.utm_source = value;
+      if (key === "_utm_medium") customVisit.utm_medium = value;
+      if (key === "_utm_campaign") customVisit.utm_campaign = value;
+      if (key === "_utm_content") customVisit.utm_content = value;
+      if (key === "_utm_term") customVisit.utm_term = value;
+    });
+
+  return customVisit;
+};
+
+const orderNodeToOrderRecord = (node: OrderNode): OrderRecord => {
+  const visit = node.customerJourneySummary?.firstVisit;
+  const utmSource = decode(visit?.utmParameters?.source);
+  const customVisit = orderNodeToCustomVisit(node);
+
+  return {
+    ...node,
+    total_price: Number(node.totalPriceSet.shopMoney.amount),
+    subtotal_price: Number(node.subtotalPriceSet.shopMoney.amount),
+    total_shopping_price: Number(node.totalShippingPriceSet.shopMoney.amount),
+    without_tax_total_price:
+      Number(node.totalPriceSet.shopMoney.amount) -
+      Number(node.totalTaxSet.shopMoney.amount),
+    total_tax: Number(node.totalTaxSet.shopMoney.amount),
+    total_refunded_price: Number(node.totalRefundedSet.shopMoney.amount),
+    total_refunded_shipping_price: Number(
+      node.totalRefundedShippingSet.shopMoney.amount,
+    ),
+    landing_page: visit?.landingPage ?? null,
+    referrer_url: visit?.referrerUrl ?? null,
+    fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
+    source:
+      (visit?.source === "an unknown source" ? utmSource : visit?.source) ??
+      customVisit.source ??
+      null,
+    source_type: visit?.sourceType ?? null,
+    utm_source: utmSource ?? customVisit.utm_source ?? null,
+    utm_medium:
+      decode(visit?.utmParameters?.medium) ??
+      decode(customVisit.utm_medium) ??
+      null,
+    utm_campaign:
+      decode(visit?.utmParameters?.campaign) ??
+      decode(customVisit.utm_campaign) ??
+      null,
+    utm_content:
+      decode(visit?.utmParameters?.content) ??
+      decode(customVisit.utm_content) ??
+      null,
+    utm_term:
+      decode(visit?.utmParameters?.term) ??
+      decode(customVisit.utm_term) ??
+      null,
+  };
+};
+
+const orderNodeToOrderSkuRecords = (node: OrderNode): OderSkuRecord[] => {
+  const { value = "[]" } =
+    node.customAttributes.find(({ key }) => key === "__line_items") ?? {};
+  const skusByLineItemId = Object.fromEntries(
+    (
+      JSON.parse(value) as Array<{
+        id: number;
+        name: string;
+        _skus: string[];
+      }>
+    ).map(({ id, _skus }) => [`gid://shopify/LineItem/${id}`, _skus]),
+  );
+
+  return node.lineItems.edges.flatMap(({ node: item }) => {
+    const skus = skusByLineItemId[item.id] ?? [];
+    const quantityBySku = skus.reduce<Record<string, number>>((res, sku) => {
+      return { ...res, [sku]: (res[sku] ?? 0) + 1 };
+    }, {});
+
+    const fulfilledAt = node.fulfillments.find(
+      ({ fulfillmentLineItems: { edges } }) =>
+        edges.some(
+          ({
+            node: {
+              lineItem: { id },
+            },
+          }) => id === item.id,
+        ),
+    )?.createdAt;
+
+    return Object.entries(quantityBySku).map(([sku, qty]) => ({
+      code: sku,
+      order_id: node.id,
+      product_id: item.product?.id ?? null,
+      variant_id: item.variant?.id ?? null,
+      line_item_id: item.id,
+      ordered_at: node.created_at ?? new Date().toISOString(),
+      fulfilled_at: fulfilledAt ?? null,
+      canceled_at: node.cancelled_at,
+      closed_at: node.closed_at,
+      quantity: item.quantity * qty,
+    }));
+  });
+};
+
+export const orderAndLineItemsByOrderId = async (id: string) => {
+  const data: { order: OrderNode } = await shopify.graphql(order(id));
+
+  const orderRecord = orderNodeToOrderRecord(data.order);
+  const lineItemRecords = orderNodeToLineItemRecords(data.order);
+  const orderSkuRecords = orderNodeToOrderSkuRecords(data.order);
+
+  await Promise.all([
+    async () => {
+      await deleteByField("orders", "shopify", "id", [orderRecord.id]);
+      await insertRecords(
+        "orders",
+        "shopify",
+        [
+          "id",
+          "name",
+          "display_financial_status",
+          "display_fulfillment_status",
+          "closed",
+          "total_price",
+          "subtotal_price",
+          "total_shopping_price",
+          "total_refunded_price",
+          "total_refunded_shipping_price",
+          "without_tax_total_price",
+          "total_tax",
+          "taxes_included",
+          "subtotal_line_item_quantity",
+          "closed_at",
+          "cancelled_at",
+          "created_at",
+          "updated_at",
+          "fulfilled_at",
+          "landing_page",
+          "referrer_url",
+          "source",
+          "source_type",
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_content",
+          "utm_term",
+        ],
+        [orderRecord],
+      );
+    },
+    async () => {
+      if (lineItemRecords.length) {
+        await deleteByField(
+          "line_items",
+          "shopify",
+          "id",
+          lineItemRecords.map(({ id }) => id),
+        );
+        await insertRecords(
+          "line_items",
+          "shopify",
+          [
+            "id",
+            "name",
+            "order_id",
+            "variant_id",
+            "product_id",
+            "quantity",
+            "original_total_price",
+            "tax_price",
+            "without_tax_total_price",
+            "delivery_schedule",
+            "skus",
+          ],
+          lineItemRecords,
+        );
+      }
+    },
+    async () => {
+      if (orderSkuRecords.length) {
+        await deleteByField("order_skus", "shopify", "order_id", [
+          orderRecord.id,
+        ]);
+        await insertRecords(
+          "order_skus",
+          "shopify",
+          [
+            "code",
+            "order_id",
+            "line_item_id",
+            "product_id",
+            "variant_id",
+            "ordered_at",
+            "fulfilled_at",
+            "canceled_at",
+            "closed_at",
+            "quantity",
+          ],
+          orderSkuRecords,
+        );
+      }
+    },
+  ]);
+};
+
 export const ordersAndLineItems = async (): Promise<void> => {
   const query = `updated_at:>'${await getLatestTimeAt(
     "orders",
@@ -571,152 +816,27 @@ export const ordersAndLineItems = async (): Promise<void> => {
       await shopify.graphql(orderListQuery(query, cursor));
 
     hasNext = data.orders.pageInfo.hasNextPage;
-
-    const customVisitByOrder: Record<string, CustomVisit> = {};
+    const lastOrder = data.orders.edges.at(-1);
+    if (lastOrder) cursor = lastOrder.cursor;
 
     lineItems = [
       ...lineItems,
       ...data.orders.edges.flatMap(({ node }) => {
-        return node.lineItems.edges.map(({ node: item }) => {
-          const customVisit: CustomVisit = {
-            source: null,
-            utm_source: null,
-            utm_medium: null,
-            utm_campaign: null,
-            utm_content: null,
-            utm_term: null,
-          };
-          item.customAttributes.forEach(({ key, value }) => {
-            if (!value) return;
-            if (key === "_source") customVisit.source = value;
-            if (key === "_utm_source") customVisit.utm_source = value;
-            if (key === "_utm_medium") customVisit.utm_medium = value;
-            if (key === "_utm_campaign") customVisit.utm_campaign = value;
-            if (key === "_utm_content") customVisit.utm_content = value;
-            if (key === "_utm_term") customVisit.utm_term = value;
-          });
-          customVisitByOrder[node.id] = customVisit;
-
-          return {
-            ...item,
-            order_id: node.id,
-            product_id: item.product?.id ?? null,
-            variant_id: item.variant?.id ?? null,
-            original_total_price: Number(
-              item.originalTotalSet.shopMoney.amount,
-            ),
-            tax_price: Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
-            without_tax_total_price:
-              Number(item.originalTotalSet.shopMoney.amount) -
-              Number(item.taxLines[0]?.priceSet.shopMoney.amount ?? 0),
-            delivery_schedule: null,
-            skus: null,
-          };
-        });
+        return orderNodeToLineItemRecords(node);
       }),
     ];
 
     orders = [
       ...orders,
-      ...data.orders.edges.map(({ node, cursor: c }) => {
-        cursor = c;
-        const visit = node.customerJourneySummary?.firstVisit;
-        const utmSource = decode(visit?.utmParameters?.source);
-        return {
-          ...node,
-          total_price: Number(node.totalPriceSet.shopMoney.amount),
-          subtotal_price: Number(node.subtotalPriceSet.shopMoney.amount),
-          total_shopping_price: Number(
-            node.totalShippingPriceSet.shopMoney.amount,
-          ),
-          without_tax_total_price:
-            Number(node.totalPriceSet.shopMoney.amount) -
-            Number(node.totalTaxSet.shopMoney.amount),
-          total_tax: Number(node.totalTaxSet.shopMoney.amount),
-          total_refunded_price: Number(node.totalRefundedSet.shopMoney.amount),
-          total_refunded_shipping_price: Number(
-            node.totalRefundedShippingSet.shopMoney.amount,
-          ),
-          landing_page: visit?.landingPage ?? null,
-          referrer_url: visit?.referrerUrl ?? null,
-          fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
-          source:
-            (visit?.source === "an unknown source"
-              ? utmSource
-              : visit?.source) ??
-            customVisitByOrder[node.id]?.source ??
-            null,
-          source_type: visit?.sourceType ?? null,
-          utm_source:
-            utmSource ?? customVisitByOrder[node.id]?.utm_source ?? null,
-          utm_medium:
-            decode(visit?.utmParameters?.medium) ??
-            decode(customVisitByOrder[node.id]?.utm_medium) ??
-            null,
-          utm_campaign:
-            decode(visit?.utmParameters?.campaign) ??
-            decode(customVisitByOrder[node.id]?.utm_campaign) ??
-            null,
-          utm_content:
-            decode(visit?.utmParameters?.content) ??
-            decode(customVisitByOrder[node.id]?.utm_content) ??
-            null,
-          utm_term:
-            decode(visit?.utmParameters?.term) ??
-            decode(customVisitByOrder[node.id]?.utm_term) ??
-            null,
-        };
+      ...data.orders.edges.map(({ node }) => {
+        return orderNodeToOrderRecord(node);
       }),
     ];
 
     orderSkus = [
       ...orderSkus,
       ...data.orders.edges.map(({ node }) => {
-        const { value = "[]" } =
-          node.customAttributes.find(({ key }) => key === "__line_items") ?? {};
-        const skusByLineItemId = Object.fromEntries(
-          (
-            JSON.parse(value) as Array<{
-              id: number;
-              name: string;
-              _skus: string[];
-            }>
-          ).map(({ id, _skus }) => [`gid://shopify/LineItem/${id}`, _skus]),
-        );
-
-        return node.lineItems.edges.flatMap(({ node: item }) => {
-          const skus = skusByLineItemId[item.id] ?? [];
-          const quantityBySku = skus.reduce<Record<string, number>>(
-            (res, sku) => {
-              return { ...res, [sku]: (res[sku] ?? 0) + 1 };
-            },
-            {},
-          );
-
-          const fulfilledAt = node.fulfillments.find(
-            ({ fulfillmentLineItems: { edges } }) =>
-              edges.some(
-                ({
-                  node: {
-                    lineItem: { id },
-                  },
-                }) => id === item.id,
-              ),
-          )?.createdAt;
-
-          return Object.entries(quantityBySku).map(([sku, qty]) => ({
-            code: sku,
-            order_id: node.id,
-            product_id: item.product?.id ?? null,
-            variant_id: item.variant?.id ?? null,
-            line_item_id: item.id,
-            ordered_at: node.created_at ?? new Date().toISOString(),
-            fulfilled_at: fulfilledAt ?? null,
-            canceled_at: node.cancelled_at,
-            closed_at: node.closed_at,
-            quantity: item.quantity * qty,
-          }));
-        });
+        return orderNodeToOrderSkuRecords(node);
       }),
     ];
 
@@ -726,109 +846,116 @@ export const ordersAndLineItems = async (): Promise<void> => {
     }
   }
 
-  for (const items of sliceByNumber(orders, 200)) {
-    if (items.length < 1) continue;
-    console.log("orders records:", items.length);
-    await deleteByField(
-      "orders",
-      "shopify",
-      "id",
-      items.map(({ id }) => id),
-    );
-    await insertRecords(
-      "orders",
-      "shopify",
-      [
-        "id",
-        "name",
-        "display_financial_status",
-        "display_fulfillment_status",
-        "closed",
-        "total_price",
-        "subtotal_price",
-        "total_shopping_price",
-        "total_refunded_price",
-        "total_refunded_shipping_price",
-        "without_tax_total_price",
-        "total_tax",
-        "taxes_included",
-        "subtotal_line_item_quantity",
-        "closed_at",
-        "cancelled_at",
-        "created_at",
-        "updated_at",
-        "fulfilled_at",
-        "landing_page",
-        "referrer_url",
-        "source",
-        "source_type",
-        "utm_source",
-        "utm_medium",
-        "utm_campaign",
-        "utm_content",
-        "utm_term",
-      ],
-      items,
-    );
-  }
-  for (const items of sliceByNumber(lineItems, 200)) {
-    if (items.length < 1) continue;
-    console.log("line_items records:", items.length);
-    await deleteByField(
-      "line_items",
-      "shopify",
-      "id",
-      items.map(({ id }) => id),
-    );
-    await insertRecords(
-      "line_items",
-      "shopify",
-      [
-        "id",
-        "name",
-        "order_id",
-        "variant_id",
-        "product_id",
-        "quantity",
-        "original_total_price",
-        "tax_price",
-        "without_tax_total_price",
-        "delivery_schedule",
-        "skus",
-      ],
-      items,
-    );
-  }
-
-  // order_id を使って消すので、sliceByNumberしたときに、order_idがループ間で跨がらない等に、orderごとにまとめてある
-  for (const orderSkuGroups of sliceByNumber(orderSkus, 100)) {
-    const items = orderSkuGroups.flat();
-    if (items.length < 1) continue;
-    console.log("order_sku records:", items.length);
-    await deleteByField(
-      "order_skus",
-      "shopify",
-      "order_id",
-      items.map(({ order_id }) => order_id),
-    );
-    await insertRecords(
-      "order_skus",
-      "shopify",
-      [
-        "code",
-        "order_id",
-        "line_item_id",
-        "product_id",
-        "variant_id",
-        "ordered_at",
-        "fulfilled_at",
-        "canceled_at",
-        "closed_at",
-        "quantity",
-      ],
-      items,
-    );
-  }
+  await Promise.all([
+    async () => {
+      for (const items of sliceByNumber(orders, 200)) {
+        if (items.length < 1) continue;
+        console.log("orders records:", items.length);
+        await deleteByField(
+          "orders",
+          "shopify",
+          "id",
+          items.map(({ id }) => id),
+        );
+        await insertRecords(
+          "orders",
+          "shopify",
+          [
+            "id",
+            "name",
+            "display_financial_status",
+            "display_fulfillment_status",
+            "closed",
+            "total_price",
+            "subtotal_price",
+            "total_shopping_price",
+            "total_refunded_price",
+            "total_refunded_shipping_price",
+            "without_tax_total_price",
+            "total_tax",
+            "taxes_included",
+            "subtotal_line_item_quantity",
+            "closed_at",
+            "cancelled_at",
+            "created_at",
+            "updated_at",
+            "fulfilled_at",
+            "landing_page",
+            "referrer_url",
+            "source",
+            "source_type",
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_content",
+            "utm_term",
+          ],
+          items,
+        );
+      }
+    },
+    async () => {
+      for (const items of sliceByNumber(lineItems, 200)) {
+        if (items.length < 1) continue;
+        console.log("line_items records:", items.length);
+        await deleteByField(
+          "line_items",
+          "shopify",
+          "id",
+          items.map(({ id }) => id),
+        );
+        await insertRecords(
+          "line_items",
+          "shopify",
+          [
+            "id",
+            "name",
+            "order_id",
+            "variant_id",
+            "product_id",
+            "quantity",
+            "original_total_price",
+            "tax_price",
+            "without_tax_total_price",
+            "delivery_schedule",
+            "skus",
+          ],
+          items,
+        );
+      }
+    },
+    async () => {
+      // order_id を使って消すので、sliceByNumberしたときに、order_idがループ間で跨がらない等に、orderごとにまとめてある
+      for (const orderSkuGroups of sliceByNumber(orderSkus, 100)) {
+        const items = orderSkuGroups.flat();
+        if (items.length < 1) continue;
+        console.log("order_sku records:", items.length);
+        await deleteByField(
+          "order_skus",
+          "shopify",
+          "order_id",
+          items.map(({ order_id }) => order_id),
+        );
+        await insertRecords(
+          "order_skus",
+          "shopify",
+          [
+            "code",
+            "order_id",
+            "line_item_id",
+            "product_id",
+            "variant_id",
+            "ordered_at",
+            "fulfilled_at",
+            "canceled_at",
+            "closed_at",
+            "quantity",
+          ],
+          items,
+        );
+      }
+    },
+  ]);
 };
 
 export const smartShoppingPerformance = async () => {
@@ -1135,6 +1262,12 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
   await ordersAndLineItems();
+  const ids: string[] = []; // ここに対象のorder idを入れる
+  for (const id of ids) {
+    console.log("Sync orders, lineItems and skus", id);
+    await orderAndLineItemsByOrderId(id);
+    await sleep(2);
+  }
   console.log("Shift sku schedule");
   await skuScheduleShift();
   console.log("Sync smart shopping performance");
