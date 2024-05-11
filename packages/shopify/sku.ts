@@ -2,6 +2,7 @@ import { client, getAllSkus, BigQueryTimestamp } from "@survaq-jobs/libraries";
 
 const { DIRECTUS_URL = "" } = process.env;
 
+// 未キャンセル・未クローズ・未フルフィル・注文より180日以内のSKUを未出荷として件数を取得
 export const getPendingShipmentCounts = async (
   codes: string[],
 ): Promise<Array<{ code: string; count: number }>> => {
@@ -13,6 +14,7 @@ export const getPendingShipmentCounts = async (
       WHERE canceled_at IS NULL
         AND closed_at IS NULL
         AND fulfilled_at IS NULL
+        AND DATE_DIFF(CURRENT_TIMESTAMP(), ordered_at, DAY) < 180
         AND code IN (${codes.map((code) => `'${code}'`).join(",")})
       GROUP BY code;
     `,
