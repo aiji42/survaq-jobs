@@ -64,9 +64,7 @@ export const updatableInventoryOrdersAndNextInventoryOrder = (
       heldQuantity: 0,
       availableQuantity:
         currentInventory -
-        (currentInventory > 0
-          ? Math.max(buffer, Math.ceil(currentInventory * sku.faultyRate))
-          : buffer),
+        Math.max(buffer, Math.ceil(currentInventory * sku.faultyRate)),
       id: null,
       ShopifyInventoryOrders: { name: "REAL" },
     },
