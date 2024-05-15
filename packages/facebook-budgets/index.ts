@@ -4,7 +4,7 @@ import {
   sleep,
   getActiveFacebookAdsBudgets,
   updateDailyBudget,
-  fetchAdSetInfo,
+  getAdSetNameAndDailyBudget,
   FacebookAdsBudgetStrategy,
   limitAsyncMap,
 } from "@survaq-jobs/libraries";
@@ -15,27 +15,20 @@ const main = async () => {
   const referenceDate = today.add(-1, "day");
 
   const plans = await getActiveFacebookAdsBudgets();
-  const flattenPlans = plans.flatMap(
-    ({ FacebookAdsBudget_FacebookAdSets, ...plan }) =>
-      FacebookAdsBudget_FacebookAdSets.flatMap(({ FacebookAdSets }) =>
-        !FacebookAdSets
-          ? []
-          : {
-              ...plan,
-              accountId: FacebookAdSets.accountId,
-              accountName: FacebookAdSets.accountName,
-              setName: FacebookAdSets.setName,
-              setId: FacebookAdSets.setId,
-            },
-      ),
+  const flattenPlans = plans.flatMap(({ FacebookAdsBudget_FacebookAdSets, ...plan }) =>
+    FacebookAdsBudget_FacebookAdSets.flatMap(({ FacebookAdSets }) =>
+      !FacebookAdSets
+        ? []
+        : {
+            ...plan,
+            accountId: FacebookAdSets.accountId,
+            accountName: FacebookAdSets.accountName,
+            setName: FacebookAdSets.setName,
+            setId: FacebookAdSets.setId,
+          },
+    ),
   );
-  console.log(
-    "Find",
-    plans.length,
-    "plans with",
-    flattenPlans.length,
-    "ad sets",
-  );
+  console.log("Find", plans.length, "plans with", flattenPlans.length, "ad sets");
 
   console.log("Reference date:", referenceDate.format("YYYY-MM-DD"));
 
@@ -57,11 +50,7 @@ const main = async () => {
       set_id: plan.setId,
     });
     if (!record) {
-      console.log(
-        "Skip since the budget was not found on BigQuery:",
-        plan.setId,
-        plan.setName,
-      );
+      console.log("Skip since the budget was not found on BigQuery:", plan.setId, plan.setName);
       return;
     }
 
@@ -84,21 +73,15 @@ const main = async () => {
 
     const roas = record.return_1week_sum / record.spend_1week_sum;
     const { ratio } =
-      (plan.strategy as FacebookAdsBudgetStrategy).find(
-        ({ beginRoas, endRoas }) => {
-          return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
-        },
-      ) ?? {};
+      (plan.strategy as FacebookAdsBudgetStrategy).find(({ beginRoas, endRoas }) => {
+        return (beginRoas ?? 0) <= roas && roas <= (endRoas ?? Infinity);
+      }) ?? {};
     if (!ratio) {
-      console.log(
-        "Skip since the strategy was not found:",
-        plan.setId,
-        plan.setName,
-      );
+      console.log("Skip since the strategy was not found:", plan.setId, plan.setName);
       return;
     }
 
-    const { daily_budget: currentBudget } = await fetchAdSetInfo(plan.setId);
+    const { daily_budget: currentBudget } = await getAdSetNameAndDailyBudget(plan.setId);
 
     const updatePlan = {
       account_id: plan.accountId,

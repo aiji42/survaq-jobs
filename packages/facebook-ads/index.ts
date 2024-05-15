@@ -1,138 +1,89 @@
 import dayjs from "dayjs";
 import {
-  insertRecords,
+  AdAccount,
   deleteByField,
+  FBError,
+  getAdAccounts,
+  getAdDailyInsights,
+  getAdSetDailyInsights,
+  insertRecords,
+  InsightResponse,
   sliceByNumber,
-  range,
-  limitAsyncMap,
 } from "@survaq-jobs/libraries";
 import { config } from "dotenv";
+
 config();
 
-type Paging = {
-  cursors: {
-    before: string;
-    after: string;
-  };
-  next?: string;
-  previous?: string;
+const { FACEBOOK_BUSINESS_ACCOUNT_IDS = "", REPORT_DAY_RANGE = "0-6" } = process.env;
+
+type BQRecordBase = {
+  impressions: number;
+  spend: number;
+  reach: number;
+  clicks: number;
+  conversions: number;
+  return: number;
+  date: string;
+  datetime: string;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  cpp: number;
+  cpa: number;
 };
 
-type AdInsights = {
-  data: {
-    impressions?: string;
-    spend?: string;
-    reach?: string;
-    inline_link_clicks?: string;
-    actions?: { action_type: string; value: string }[];
-    action_values?: { action_type: string; value: string }[];
-    date_start: string;
-    date_stop: string;
-    inline_link_click_ctr?: string;
-    cost_per_inline_link_click?: string;
-    cpm?: string;
-    cpp?: string;
-    cost_per_action_type?: { action_type: string; value: string }[];
-  }[];
-  paging: Paging;
-};
-
-type AdSet = {
-  data: { name: string; id: string; insights?: AdInsights }[];
-  paging: Paging;
-};
-
-type AdAccount = {
-  data: { name: string; id: string; adsets?: AdSet }[];
-  paging: Paging;
-};
-
-type Res = {
-  owned_ad_accounts: AdAccount;
-};
-
-type FbError = {
-  error: {
-    message: string;
-    type: string;
-    code: string;
-    error_subcode: string;
-    fbtrace_id: string;
-  };
-};
-
-const {
-  FACEBOOK_BUSINESS_ACCOUNT_IDS = "",
-  FACEBOOK_GRAPH_API_TOKEN = "",
-  REPORT_DAY_RANGE = "0-6",
-} = process.env;
+const faileds: { id: string; error: string }[] = [];
 
 export const adReports = async (): Promise<void> => {
-  const days = (REPORT_DAY_RANGE.split("-") as [string, string]).map(
-    Number,
-  ) as [number, number];
-  const inspectDates = range(...days).map((d) =>
-    dayjs().subtract(d, "day").format("YYYY-MM-DD"),
-  );
-  const params = FACEBOOK_BUSINESS_ACCOUNT_IDS.split("|").flatMap(
-    (businessAccountId) =>
-      inspectDates.map((inspectDate) => ({ businessAccountId, inspectDate })),
-  );
-  const adSetRecords = (
-    await limitAsyncMap(
-      params,
-      ({ inspectDate, businessAccountId }) =>
-        getAdSetReportRecords(inspectDate, businessAccountId),
-      { concurrency: 5, retryable: 3 },
-    )
-  ).flat();
+  const [end, begin] = (REPORT_DAY_RANGE.split("-") as [string, string])
+    .map(Number)
+    .map((d) => dayjs().subtract(d, "day").format("YYYY-MM-DD")) as [string, string];
+  const businessAccountIds = FACEBOOK_BUSINESS_ACCOUNT_IDS.split("|");
+  const adAccounts = (await Promise.all(businessAccountIds.map((id) => getAdAccounts(id)))).flat();
+
+  console.log("adAccounts: ", adAccounts.length);
+
+  const adSetRecords = await makeAdSetReportRecords(adAccounts, begin, end);
+
   console.log("adSetRecords: ", adSetRecords.length);
   if (adSetRecords.length > 0) {
-    await deleteByField(
-      "ads",
-      "facebook",
-      "id",
-      adSetRecords.map(({ id }) => id),
-    );
-    await insertRecords(
-      "ads",
-      "facebook",
-      [
+    for (const records of sliceByNumber(adSetRecords, 200)) {
+      await deleteByField(
+        "ads",
+        "facebook",
         "id",
-        "account_id",
-        "account_name",
-        "set_id",
-        "set_name",
-        "impressions",
-        "spend",
-        "reach",
-        "clicks",
-        "conversions",
-        "return",
-        "date",
-        "datetime",
-        "ctr",
-        "cpc",
-        "cpm",
-        "cpp",
-        "cpa",
-      ],
-      adSetRecords,
-    );
+        records.map(({ id }) => id),
+      );
+      await insertRecords(
+        "ads",
+        "facebook",
+        [
+          "id",
+          "account_id",
+          "account_name",
+          "set_id",
+          "set_name",
+          "impressions",
+          "spend",
+          "reach",
+          "clicks",
+          "conversions",
+          "return",
+          "date",
+          "datetime",
+          "ctr",
+          "cpc",
+          "cpm",
+          "cpp",
+          "cpa",
+        ],
+        records,
+      );
+    }
   }
-  const accountIds = [
-    ...new Set(adSetRecords.map(({ account_id }) => account_id)),
-  ];
-  const adRecords = (
-    await limitAsyncMap(
-      accountIds.flatMap((accountId) =>
-        inspectDates.map((inspectDate) => ({ accountId, inspectDate })),
-      ),
-      ({ accountId, inspectDate }) =>
-        getAdReportRecords(inspectDate, accountId),
-      { concurrency: 10, retryable: 3 },
-    )
-  ).flat();
+
+  const adRecords = await makeAdReportRecords(adAccounts, begin, end);
+
   console.log("adRecords: ", adRecords.length);
   if (adRecords.length > 0) {
     for (const records of sliceByNumber(adRecords, 200)) {
@@ -171,142 +122,79 @@ export const adReports = async (): Promise<void> => {
   }
 };
 
+const makeRecordFromInsight = (data: InsightResponse["data"][0]): BQRecordBase => {
+  const {
+    impressions,
+    spend,
+    reach,
+    inline_link_clicks,
+    actions,
+    action_values,
+    date_start: date,
+    inline_link_click_ctr,
+    cost_per_inline_link_click,
+    cpm,
+    cpp,
+    cost_per_action_type,
+  } = data;
+  return {
+    impressions: Number(impressions ?? 0),
+    spend: Number(spend ?? 0),
+    reach: Number(reach ?? 0),
+    clicks: Number(inline_link_clicks ?? 0),
+    conversions: Number(
+      actions?.find(({ action_type }) => action_type === "omni_purchase")?.value || 0,
+    ),
+    return: Number(
+      action_values?.find(({ action_type }) => action_type === "omni_purchase")?.value || 0,
+    ),
+    date,
+    datetime: `${date}T00:00:00`,
+    ctr: Number(inline_link_click_ctr ?? 0),
+    cpc: Number(cost_per_inline_link_click ?? 0),
+    cpm: Number(cpm ?? 0),
+    cpp: Number(cpp ?? 0),
+    cpa: Number(
+      cost_per_action_type?.find(({ action_type }) => action_type === "omni_purchase")?.value || 0,
+    ),
+  };
+};
+
 type AdSetReportRecord = {
   id: string;
   account_id: string;
   account_name: string;
   set_id: string;
   set_name: string;
-  impressions: number;
-  spend: number;
-  reach: number;
-  clicks: number;
-  conversions: number;
-  return: number;
-  date: string;
-  datetime: string;
-  ctr: number;
-  cpc: number;
-  cpm: number;
-  cpp: number;
-  cpa: number;
-};
+} & BQRecordBase;
 
-const getAdSetReportRecords = async (
-  inspectDate: string,
-  businessAccountId: string,
-): Promise<AdSetReportRecord[] | never> => {
-  const records: AdSetReportRecord[] = [];
-  let next = `https://graph.facebook.com/v17.0/${businessAccountId}?fields=owned_ad_accounts.limit(5){name,adsets.limit(20){name,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}}}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
-  while (next) {
-    const res = await fetch(next).then((res) => {
-      if (!res.ok) {
-        const usage = res.headers.get("x-business-use-case-usage");
-        usage && console.log(JSON.parse(usage));
-      }
-      return res.json() as Promise<Res | AdAccount | FbError>;
-    });
-    if ("error" in res) {
-      console.error(res.error);
-      throw new Error(res.error.message);
-    }
-
-    next =
-      ("owned_ad_accounts" in res
-        ? res.owned_ad_accounts.paging.next
-        : res.paging.next) ?? "";
-    const adAccount =
-      "owned_ad_accounts" in res ? res.owned_ad_accounts.data : res.data;
-
-    for (const { id: accountId, name: accountName, adsets } of adAccount) {
-      if (!adsets) continue;
-      let adsetNext = adsets.paging.next;
-      while (adsetNext) {
-        const res = await fetch(adsetNext).then((res) => {
-          if (!res.ok) {
-            const usage = res.headers.get("x-business-use-case-usage");
-            usage && console.log(JSON.parse(usage));
-          }
-          return res.json() as Promise<AdSet | FbError>;
-        });
-        if ("error" in res) {
-          console.error(res.error);
-          throw new Error(res.error.message);
+const makeAdSetReportRecords = async (
+  addAccounts: AdAccount[],
+  begin: string,
+  end: string,
+): Promise<AdSetReportRecord[]> => {
+  const res = await Promise.all(
+    addAccounts.map(async ({ id: adAccountId, name: adAccountName }) => {
+      const res = await getAdSetDailyInsights(adAccountId, { begin, end }).catch((e) => {
+        if (e instanceof FBError) {
+          console.error(e);
+          faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
+          return [];
         }
+        throw e;
+      });
+      return res.map<AdSetReportRecord>((data) => ({
+        id: `${data.adset_id}_${data.date_start}`,
+        account_id: adAccountId,
+        account_name: adAccountName,
+        set_id: data.adset_id,
+        set_name: data.adset_name,
+        ...makeRecordFromInsight(data),
+      }));
+    }),
+  );
 
-        adsets.data.push(...res.data);
-
-        adsetNext = res.paging.next;
-      }
-
-      const _records = adsets.data.flatMap<AdSetReportRecord>(
-        ({ id: setId, name: setName, insights }) => {
-          if (!insights) return [];
-          return insights.data.map(
-            ({
-              impressions,
-              spend,
-              reach,
-              inline_link_clicks,
-              actions,
-              action_values,
-              date_start: date,
-              inline_link_click_ctr,
-              cost_per_inline_link_click,
-              cpm,
-              cpp,
-              cost_per_action_type,
-            }) => ({
-              id: `${setId}_${date}`,
-              account_id: accountId,
-              account_name: accountName,
-              set_id: setId,
-              set_name: setName,
-              impressions: Number(impressions ?? 0),
-              spend: Number(spend ?? 0),
-              reach: Number(reach ?? 0),
-              clicks: Number(inline_link_clicks ?? 0),
-              conversions: Number(
-                actions?.find(
-                  ({ action_type }) => action_type === "omni_purchase",
-                )?.value || 0,
-              ),
-              return: Number(
-                action_values?.find(
-                  ({ action_type }) => action_type === "omni_purchase",
-                )?.value || 0,
-              ),
-              date,
-              datetime: `${date}T00:00:00`,
-              ctr: Number(inline_link_click_ctr ?? 0),
-              cpc: Number(cost_per_inline_link_click ?? 0),
-              cpm: Number(cpm ?? 0),
-              cpp: Number(cpp ?? 0),
-              cpa: Number(
-                cost_per_action_type?.find(
-                  ({ action_type }) => action_type === "omni_purchase",
-                )?.value || 0,
-              ),
-            }),
-          );
-        },
-      );
-
-      records.push(..._records);
-    }
-  }
-  return records;
-};
-
-type Ads = {
-  data: {
-    name: string;
-    id: string;
-    adset_id: string;
-    account_id: string;
-    insights?: AdInsights;
-  }[];
-  paging: Paging;
+  return res.flat();
 };
 
 type AdReportRecord = {
@@ -315,100 +203,45 @@ type AdReportRecord = {
   account_id: string;
   set_id: string;
   ad_id: string;
-  impressions: number;
-  spend: number;
-  reach: number;
-  clicks: number;
-  conversions: number;
-  return: number;
-  date: string;
-  datetime: string;
-  ctr: number;
-  cpc: number;
-  cpm: number;
-  cpp: number;
-  cpa: number;
-};
+} & BQRecordBase;
 
-const getAdReportRecords = async (
-  inspectDate: string,
-  adAccountId: string,
-): Promise<AdReportRecord[] | never> => {
-  const records: AdReportRecord[] = [];
-  let next = `https://graph.facebook.com/v17.0/${adAccountId}/ads?fields=id,name,adset_id,account_id,insights.time_range({since:'${inspectDate}',until:'${inspectDate}'}){impressions,spend,reach,inline_link_clicks,action_values,actions,inline_link_click_ctr,cost_per_inline_link_click,cpm,cpp,cost_per_action_type}&access_token=${FACEBOOK_GRAPH_API_TOKEN}`;
-  while (next) {
-    const res = await fetch(next).then((res) => {
-      if (!res.ok) {
-        const usage = res.headers.get("x-business-use-case-usage");
-        usage && console.log(JSON.parse(usage));
-      }
-      return res.json() as Promise<Ads | FbError>;
-    });
-    if ("error" in res) {
-      console.error(res.error);
-      throw new Error(res.error.message);
-    }
+const makeAdReportRecords = async (
+  addAccounts: AdAccount[],
+  begin: string,
+  end: string,
+): Promise<AdReportRecord[]> => {
+  const res = await Promise.all(
+    addAccounts.map(async ({ id: adAccountId }) => {
+      const res = await getAdDailyInsights(adAccountId, { begin, end }).catch((e) => {
+        if (e instanceof FBError) {
+          console.error(e);
+          faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
+          return [];
+        }
+        throw e;
+      });
+      return res.map<AdReportRecord>((data) => ({
+        id: `${data.ad_id}_${data.date_start}`,
+        name: data.ad_name,
+        account_id: adAccountId,
+        set_id: data.adset_id,
+        ad_id: data.adset_name,
+        ...makeRecordFromInsight(data),
+      }));
+    }),
+  );
 
-    next = res.paging.next ?? "";
-
-    res.data.forEach(({ id, name, account_id, adset_id, insights }) => {
-      insights?.data.forEach(
-        ({
-          impressions,
-          spend,
-          reach,
-          inline_link_clicks,
-          actions,
-          action_values,
-          date_start: date,
-          inline_link_click_ctr,
-          cost_per_inline_link_click,
-          cpm,
-          cpp,
-          cost_per_action_type,
-        }) => {
-          records.push({
-            id: `${id}_${date}`,
-            name,
-            account_id,
-            set_id: adset_id,
-            ad_id: id,
-            impressions: Number(impressions ?? 0),
-            spend: Number(spend ?? 0),
-            reach: Number(reach ?? 0),
-            clicks: Number(inline_link_clicks ?? 0),
-            conversions: Number(
-              actions?.find(
-                ({ action_type }) => action_type === "omni_purchase",
-              )?.value || 0,
-            ),
-            return: Number(
-              action_values?.find(
-                ({ action_type }) => action_type === "omni_purchase",
-              )?.value || 0,
-            ),
-            date,
-            datetime: `${date}T00:00:00`,
-            ctr: Number(inline_link_click_ctr ?? 0),
-            cpc: Number(cost_per_inline_link_click ?? 0),
-            cpm: Number(cpm ?? 0),
-            cpp: Number(cpp ?? 0),
-            cpa: Number(
-              cost_per_action_type?.find(
-                ({ action_type }) => action_type === "omni_purchase",
-              )?.value || 0,
-            ),
-          });
-        },
-      );
-    });
-  }
-  return records;
+  return res.flat();
 };
 
 const main = async () => {
   await adReports();
+  if (faileds.length > 0) {
+    console.error("Failed: ", faileds);
+    throw new Error("Failed (but main process is success");
+  }
 };
+
 main()
   .then(() => {
     process.exit(0);

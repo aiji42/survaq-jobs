@@ -1,6 +1,6 @@
 import {
   FacebookAdAlertsRule,
-  fetchAdSetInfo,
+  getAdSetNameAndDailyBudget,
   getActiveFacebookAdAlerts,
   getRecords,
   postMessage,
@@ -25,13 +25,7 @@ type BQRecord = {
   impressions_1week_sum: number;
 };
 
-const facebookAdSetLink = ({
-  accountId,
-  setId,
-}: {
-  accountId: string;
-  setId: string;
-}) =>
+const facebookAdSetLink = ({ accountId, setId }: { accountId: string; setId: string }) =>
   `https://business.facebook.com/adsmanager/manage/ads?act=${accountId.replace(
     "act_",
     "",
@@ -68,15 +62,10 @@ const main = async () => {
     "impressions_1week_sum",
   ];
 
-  const currentWeekRecords = await getRecords<BQRecord>(
-    "calc_for_roas",
-    "facebook",
-    columns,
-    {
-      date: dayjs().add(-1, "day").format("YYYY-MM-DD"),
-      set_id: setIds,
-    },
-  );
+  const currentWeekRecords = await getRecords<BQRecord>("calc_for_roas", "facebook", columns, {
+    date: dayjs().add(-1, "day").format("YYYY-MM-DD"),
+    set_id: setIds,
+  });
   const lastWeekRecords = await getRecords<BQRecord>(
     "calc_for_roas",
     "facebook",
@@ -121,7 +110,7 @@ const main = async () => {
       setIds,
       async (setId) => {
         console.log("fetch budget: ", setId);
-        const { daily_budget } = await fetchAdSetInfo(setId);
+        const { daily_budget } = await getAdSetNameAndDailyBudget(setId);
 
         return [setId, Number(daily_budget)];
       },
@@ -131,27 +120,13 @@ const main = async () => {
 
   const dataBySetId = Object.fromEntries(
     currentWeekRecords.map(
-      ({
-        set_id,
-        spend_1week_sum,
-        return_1week_sum,
-        clicks_1week_sum,
-        impressions_1week_sum,
-      }) => {
+      ({ set_id, spend_1week_sum, return_1week_sum, clicks_1week_sum, impressions_1week_sum }) => {
         const roas = return_1week_sum / spend_1week_sum;
         const cpc = spend_1week_sum / clicks_1week_sum;
-        const lastWeek = lastWeekRecords.find(
-          (lastWeek) => set_id === lastWeek.set_id,
-        );
-        const cpcLastWeek = lastWeek
-          ? lastWeek.spend_1week_sum / lastWeek.clicks_1week_sum
-          : null;
-        const roasLastWeek = lastWeek
-          ? lastWeek.return_1week_sum / lastWeek.spend_1week_sum
-          : null;
-        const lastMonth = lastMonthRecords.find(
-          (lastWeek) => set_id === lastWeek.set_id,
-        );
+        const lastWeek = lastWeekRecords.find((lastWeek) => set_id === lastWeek.set_id);
+        const cpcLastWeek = lastWeek ? lastWeek.spend_1week_sum / lastWeek.clicks_1week_sum : null;
+        const roasLastWeek = lastWeek ? lastWeek.return_1week_sum / lastWeek.spend_1week_sum : null;
+        const lastMonth = lastMonthRecords.find((lastWeek) => set_id === lastWeek.set_id);
         const cpcLastMonth = lastMonth
           ? lastMonth.spend_1week_sum / lastMonth.clicks_1week_sum
           : null;
@@ -181,9 +156,7 @@ const main = async () => {
 
   for (const alert of filteredAlerts) {
     const slackAttachments: MessageAttachment[] = [];
-    for (const {
-      FacebookAdSets: adSet,
-    } of alert.FacebookAdAlerts_FacebookAdSets) {
+    for (const { FacebookAdSets: adSet } of alert.FacebookAdAlerts_FacebookAdSets) {
       if (!adSet) continue;
       const data = dataBySetId[adSet.setId];
       if (!data) continue;
@@ -205,49 +178,47 @@ const main = async () => {
 
       for (const ruleSet of ruleSets) {
         if ((ruleSet.rule as FacebookAdAlertsRule).length < 1) continue;
-        const matched = (ruleSet.rule as FacebookAdAlertsRule).every(
-          ({ key, value, operator }) => {
-            let baseValue: number | undefined;
-            if (key === "roas_weekly") {
-              baseValue = data.roas;
-            } else if (key === "roas_weekly_change_rate") {
-              baseValue = data.roasChangeRateWeekly;
-            } else if (key === "roas_monthly_change_rate") {
-              baseValue = data.roasChangeRateMonthly;
-            } else if (key === "cpc_weekly") {
-              baseValue = data.cpc;
-            } else if (key === "cpc_weekly_change_rate") {
-              baseValue = data.cpcChangeRateWeekly;
-            } else if (key === "cpc_monthly_change_rate") {
-              baseValue = data.cpcChangeRateMonthly;
-            } else if (key === "cpm_weekly") {
-              baseValue = data.cpm;
-            } else if (key === "ctr_weekly") {
-              baseValue = data.ctr;
-            } else if (key === "since_last_create") {
-              baseValue = daysSinceLastCreateSetId[adSet.setId];
-            } else if (key === "budget") {
-              baseValue = dailyBudgetSetId[adSet.setId];
-            }
-            if (typeof baseValue === "undefined") {
-              return false;
-            }
-
-            if (operator === ">") {
-              return baseValue > value;
-            } else if (operator === ">=") {
-              return baseValue >= value;
-            } else if (operator === "=") {
-              return baseValue === value;
-            } else if (operator === "<=") {
-              return baseValue <= value;
-            } else if (operator === "<") {
-              return baseValue < value;
-            }
-
+        const matched = (ruleSet.rule as FacebookAdAlertsRule).every(({ key, value, operator }) => {
+          let baseValue: number | undefined;
+          if (key === "roas_weekly") {
+            baseValue = data.roas;
+          } else if (key === "roas_weekly_change_rate") {
+            baseValue = data.roasChangeRateWeekly;
+          } else if (key === "roas_monthly_change_rate") {
+            baseValue = data.roasChangeRateMonthly;
+          } else if (key === "cpc_weekly") {
+            baseValue = data.cpc;
+          } else if (key === "cpc_weekly_change_rate") {
+            baseValue = data.cpcChangeRateWeekly;
+          } else if (key === "cpc_monthly_change_rate") {
+            baseValue = data.cpcChangeRateMonthly;
+          } else if (key === "cpm_weekly") {
+            baseValue = data.cpm;
+          } else if (key === "ctr_weekly") {
+            baseValue = data.ctr;
+          } else if (key === "since_last_create") {
+            baseValue = daysSinceLastCreateSetId[adSet.setId];
+          } else if (key === "budget") {
+            baseValue = dailyBudgetSetId[adSet.setId];
+          }
+          if (typeof baseValue === "undefined") {
             return false;
-          },
-        );
+          }
+
+          if (operator === ">") {
+            return baseValue > value;
+          } else if (operator === ">=") {
+            return baseValue >= value;
+          } else if (operator === "=") {
+            return baseValue === value;
+          } else if (operator === "<=") {
+            return baseValue <= value;
+          } else if (operator === "<") {
+            return baseValue < value;
+          }
+
+          return false;
+        });
         if (matched) {
           const adSetData = dataBySetId[adSet.setId]!;
           slackAttachments.push({
@@ -288,20 +259,16 @@ const main = async () => {
                   : key === "cpc_weekly_change_rate"
                   ? {
                       title: "CPC変動比(先週比)",
-                      value: `${adSetData.cpcChangeRateWeekly.toFixed(
+                      value: `${adSetData.cpcChangeRateWeekly.toFixed(2)} (${adSetData.cpc.toFixed(
                         2,
-                      )} (${adSetData.cpc.toFixed(2)} / ${
-                        adSetData.cpcLastWeek?.toFixed(2) ?? "-"
-                      })`,
+                      )} / ${adSetData.cpcLastWeek?.toFixed(2) ?? "-"})`,
                     }
                   : key === "cpc_monthly_change_rate"
                   ? {
                       title: "CPC変動比(先月比)",
-                      value: `${adSetData.cpcChangeRateMonthly.toFixed(
+                      value: `${adSetData.cpcChangeRateMonthly.toFixed(2)} (${adSetData.cpc.toFixed(
                         2,
-                      )} (${adSetData.cpc.toFixed(2)} / ${
-                        adSetData.cpcLastMonth?.toFixed(2) ?? "-"
-                      })`,
+                      )} / ${adSetData.cpcLastMonth?.toFixed(2) ?? "-"})`,
                     }
                   : key === "cpm_weekly"
                   ? {

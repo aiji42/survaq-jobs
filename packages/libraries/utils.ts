@@ -7,13 +7,8 @@ export const sleep = (sec: number) => {
 export const sliceByNumber = <T>(array: T[], n: number): T[][] => {
   const length = Math.ceil(array.length / n);
 
-  return new Array(length)
-    .fill(0)
-    .map((_, i) => array.slice(i * n, (i + 1) * n));
+  return new Array(length).fill(0).map((_, i) => array.slice(i * n, (i + 1) * n));
 };
-
-export const range = (start: number, end: number) =>
-  [...Array(end + 1).keys()].slice(start);
 
 export const limitAsyncMap = async <T, R>(
   params: T[],
@@ -37,6 +32,9 @@ export const limitAsyncMap = async <T, R>(
   if (errors.length === 0) return results;
 
   console.log("Failed", errors.length, "items");
+  errors.forEach((error) => {
+    console.log(error.name, error.message);
+  });
   console.log("Waiting", retryIntervalSec, "sec for next retry time");
   await sleep(retryIntervalSec);
   console.log("Retry!");
