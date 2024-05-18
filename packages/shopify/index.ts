@@ -47,9 +47,7 @@ const alertNotifySlackChannel = "#notify-cms";
 const infoNotifySlackChannel = "#notify-cms-info";
 
 const productListQuery = (query: string, cursor: null | string) => `{
-  products(first: 50, query: "${query}" after: ${
-    cursor ? `"${cursor}"` : "null"
-  }) {
+  products(first: 50, query: "${query}" after: ${cursor ? `"${cursor}"` : "null"}) {
     edges {
       node {
         id
@@ -94,9 +92,7 @@ export const products = async (): Promise<void> => {
         id: String(id),
         title: title as string,
         updatedAt,
-        productIds: ShopifyProducts.map(
-          ({ productId }) => `gid://shopify/Product/${productId}`,
-        ),
+        productIds: ShopifyProducts.map(({ productId }) => `gid://shopify/Product/${productId}`),
       })) ?? [];
 
   const currentSyncedAt = new Date().toISOString();
@@ -107,8 +103,9 @@ export const products = async (): Promise<void> => {
   let cursor: null | string = null;
   let products: Product[] = [];
   while (hasNext) {
-    const data: { products: WithPageInfo<EdgesNode<ProductNode>> } =
-      await shopify.graphql(productListQuery(query, cursor));
+    const data: { products: WithPageInfo<EdgesNode<ProductNode>> } = await shopify.graphql(
+      productListQuery(query, cursor),
+    );
     hasNext = data.products.pageInfo.hasNextPage;
 
     data.products.edges.forEach((edge) => {
@@ -153,8 +150,7 @@ export const products = async (): Promise<void> => {
 
   for (const productIdAndGroup of productIdAndGroupMappings) {
     if (
-      (productIdAndGroup.updatedAt &&
-        productIdAndGroup.updatedAt < new Date(lastSyncedAt)) ||
+      (productIdAndGroup.updatedAt && productIdAndGroup.updatedAt < new Date(lastSyncedAt)) ||
       productIdAndGroup.productIds.length < 1
     )
       continue;
@@ -173,9 +169,7 @@ export const products = async (): Promise<void> => {
 };
 
 const variantListQuery = (query: string, cursor: null | string) => `{
-  productVariants(first: 50, query: "${query}", after: ${
-    cursor ? `"${cursor}"` : "null"
-  }) {
+  productVariants(first: 50, query: "${query}", after: ${cursor ? `"${cursor}"` : "null"}) {
     edges {
       node {
         id
@@ -228,11 +222,7 @@ type VariantRecord = {
 };
 
 export const variants = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestTimeAt(
-    "variants",
-    "shopify",
-    "updated_at",
-  )}'`;
+  const query = `updated_at:>'${await getLatestTimeAt("variants", "shopify", "updated_at")}'`;
   console.log("Graphql query: ", query);
   let hasNext = true;
   let cursor: null | string = null;
@@ -242,23 +232,18 @@ export const variants = async (): Promise<void> => {
       await shopify.graphql(variantListQuery(query, cursor));
     hasNext = data.productVariants.pageInfo.hasNextPage;
 
-    variants = data.productVariants.edges.reduce<VariantRecord[]>(
-      (res, { node, cursor: c }) => {
-        cursor = c;
-        return [
-          ...res,
-          {
-            ...node,
-            product_id: node.product.id,
-            price: Number(node.price),
-            compare_at_price: node.compareAtPrice
-              ? Number(node.compareAtPrice)
-              : null,
-          },
-        ];
-      },
-      variants,
-    );
+    variants = data.productVariants.edges.reduce<VariantRecord[]>((res, { node, cursor: c }) => {
+      cursor = c;
+      return [
+        ...res,
+        {
+          ...node,
+          product_id: node.product.id,
+          price: Number(node.price),
+          compare_at_price: node.compareAtPrice ? Number(node.compareAtPrice) : null,
+        },
+      ];
+    }, variants);
 
     if (hasNext) {
       console.log("has next cursor: ", cursor);
@@ -406,9 +391,7 @@ const order = (id: string) => `{
 `;
 
 const orderListQuery = (query: string, cursor: null | string) => `{
-  orders(first: 10, query: "${query}" after: ${
-    cursor ? `"${cursor}"` : "null"
-  }) {
+  orders(first: 10, query: "${query}" after: ${cursor ? `"${cursor}"` : "null"}) {
     edges {
       node ${orderNode}
       cursor
@@ -614,13 +597,10 @@ const orderNodeToOrderRecord = (node: OrderNode): OrderRecord => {
     subtotal_price: Number(node.subtotalPriceSet.shopMoney.amount),
     total_shopping_price: Number(node.totalShippingPriceSet.shopMoney.amount),
     without_tax_total_price:
-      Number(node.totalPriceSet.shopMoney.amount) -
-      Number(node.totalTaxSet.shopMoney.amount),
+      Number(node.totalPriceSet.shopMoney.amount) - Number(node.totalTaxSet.shopMoney.amount),
     total_tax: Number(node.totalTaxSet.shopMoney.amount),
     total_refunded_price: Number(node.totalRefundedSet.shopMoney.amount),
-    total_refunded_shipping_price: Number(
-      node.totalRefundedShippingSet.shopMoney.amount,
-    ),
+    total_refunded_shipping_price: Number(node.totalRefundedShippingSet.shopMoney.amount),
     landing_page: visit?.landingPage ?? null,
     referrer_url: visit?.referrerUrl ?? null,
     fulfilled_at: node.fulfillments[0]?.createdAt ?? null,
@@ -630,28 +610,16 @@ const orderNodeToOrderRecord = (node: OrderNode): OrderRecord => {
       null,
     source_type: visit?.sourceType ?? null,
     utm_source: utmSource ?? customVisit.utm_source ?? null,
-    utm_medium:
-      decode(visit?.utmParameters?.medium) ??
-      decode(customVisit.utm_medium) ??
-      null,
+    utm_medium: decode(visit?.utmParameters?.medium) ?? decode(customVisit.utm_medium) ?? null,
     utm_campaign:
-      decode(visit?.utmParameters?.campaign) ??
-      decode(customVisit.utm_campaign) ??
-      null,
-    utm_content:
-      decode(visit?.utmParameters?.content) ??
-      decode(customVisit.utm_content) ??
-      null,
-    utm_term:
-      decode(visit?.utmParameters?.term) ??
-      decode(customVisit.utm_term) ??
-      null,
+      decode(visit?.utmParameters?.campaign) ?? decode(customVisit.utm_campaign) ?? null,
+    utm_content: decode(visit?.utmParameters?.content) ?? decode(customVisit.utm_content) ?? null,
+    utm_term: decode(visit?.utmParameters?.term) ?? decode(customVisit.utm_term) ?? null,
   };
 };
 
 const orderNodeToOrderSkuRecords = (node: OrderNode): OderSkuRecord[] => {
-  const { value = "[]" } =
-    node.customAttributes.find(({ key }) => key === "__line_items") ?? {};
+  const { value = "[]" } = node.customAttributes.find(({ key }) => key === "__line_items") ?? {};
   const skusByLineItemId = Object.fromEntries(
     (
       JSON.parse(value) as Array<{
@@ -664,8 +632,7 @@ const orderNodeToOrderSkuRecords = (node: OrderNode): OderSkuRecord[] => {
   // 新方式のSKUに対応していない注文データは下記旧式で補完する
   if (Object.keys(skusByLineItemId).length === 0) {
     node.lineItems.edges.forEach(({ node }) => {
-      const value = node.customAttributes.find(({ key }) => key === "_skus")
-        ?.value;
+      const value = node.customAttributes.find(({ key }) => key === "_skus")?.value;
       if (value) skusByLineItemId[node.id] = JSON.parse(value);
     });
   }
@@ -677,15 +644,14 @@ const orderNodeToOrderSkuRecords = (node: OrderNode): OderSkuRecord[] => {
       return { ...res, [sku]: (res[sku] ?? 0) + 1 };
     }, {});
 
-    const fulfilledAt = node.fulfillments.find(
-      ({ fulfillmentLineItems: { edges } }) =>
-        edges.some(
-          ({
-            node: {
-              lineItem: { id },
-            },
-          }) => id === item.id,
-        ),
+    const fulfilledAt = node.fulfillments.find(({ fulfillmentLineItems: { edges } }) =>
+      edges.some(
+        ({
+          node: {
+            lineItem: { id },
+          },
+        }) => id === item.id,
+      ),
     )?.createdAt;
 
     return Object.entries(quantityBySku).map(([sku, qty]) => ({
@@ -808,11 +774,7 @@ export const orderAndLineItemsByOrderId = async (id: string) => {
 };
 
 export const ordersAndLineItems = async (): Promise<void> => {
-  const query = `updated_at:>'${await getLatestTimeAt(
-    "orders",
-    "shopify",
-    "updated_at",
-  )}'`;
+  const query = `updated_at:>'${await getLatestTimeAt("orders", "shopify", "updated_at")}'`;
   console.log("Graphql query: ", query);
 
   let hasNext = true;
@@ -823,8 +785,9 @@ export const ordersAndLineItems = async (): Promise<void> => {
   let orderSkus: OderSkuRecord[][] = [];
 
   while (hasNext) {
-    const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } =
-      await shopify.graphql(orderListQuery(query, cursor));
+    const data: { orders: WithPageInfo<EdgesNode<OrderNode>> } = await shopify.graphql(
+      orderListQuery(query, cursor),
+    );
 
     hasNext = data.orders.pageInfo.hasNextPage;
     const lastOrder = data.orders.edges.at(-1);
@@ -974,11 +937,7 @@ export const smartShoppingPerformance = async () => {
   const [files] = await bucket.getFiles();
   const rows = (
     await Promise.all(
-      files.map((file) =>
-        file
-          .download()
-          .then(([bff]) => parse(bff.toString(), { from_line: 4 })),
-      ),
+      files.map((file) => file.download().then(([bff]) => parse(bff.toString(), { from_line: 4 }))),
     )
   )
     .flat()
@@ -992,10 +951,7 @@ export const smartShoppingPerformance = async () => {
       }[]
     >((res, [date, merchantCenterId, name, currencyCode, cost]) => {
       if (merchantCenterId === " --") return res;
-      return [
-        ...res,
-        { date, merchantCenterId, name, currencyCode, cost: Number(cost) },
-      ];
+      return [...res, { date, merchantCenterId, name, currencyCode, cost: Number(cost) }];
     }, []);
   const dates = [...new Set(rows.map(({ date }) => date))];
 
@@ -1037,9 +993,7 @@ const skuScheduleShift = async () => {
   const alertNotifies: MessageAttachment[] = [];
   const infoNotifies: MessageAttachment[] = [];
   const skusOnDB = await getAllSkus();
-  const pendingShipmentCounts = await getPendingShipmentCounts(
-    skusOnDB.map(({ code }) => code),
-  );
+  const pendingShipmentCounts = await getPendingShipmentCounts(skusOnDB.map(({ code }) => code));
   const shippedCounts = await getShippedCounts(
     skusOnDB.map(({ code, lastSyncedAt }) => ({
       code,
@@ -1068,11 +1022,7 @@ const skuScheduleShift = async () => {
 
     try {
       const { updatableInventoryOrders, nextInventoryOrder, rest } =
-        updatableInventoryOrdersAndNextInventoryOrder(
-          inventory,
-          unshippedOrderCount,
-          sku,
-        );
+        updatableInventoryOrdersAndNextInventoryOrder(inventory, unshippedOrderCount, sku);
 
       if (
         sku.inventory !== inventory ||
@@ -1089,9 +1039,7 @@ const skuScheduleShift = async () => {
             title_link: cmsSKULink(sku.id),
             text: "下記SKUの販売枠を変更しました",
             color: "good",
-            fields: [
-              { title: "新しい販売枠", value: nextInventoryOrder.title },
-            ],
+            fields: [{ title: "新しい販売枠", value: nextInventoryOrder.title }],
           });
 
         await updateSku(sku.code, {
@@ -1130,9 +1078,7 @@ const skuScheduleShift = async () => {
         fields: [
           {
             title: "現在販売枠",
-            value:
-              sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ??
-              "実在庫",
+            value: sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ?? "実在庫",
           },
         ],
       });
@@ -1140,13 +1086,9 @@ const skuScheduleShift = async () => {
   }
 
   if (alertNotifies.length)
-    await postMessage(
-      alertNotifySlackChannel,
-      "SKU調整処理通知",
-      alertNotifies,
-    );
+    await postMessage(alertNotifySlackChannel, "SKU調整処理通知", alertNotifies);
   if (infoNotifies.length)
-    await postMessage(infoNotifySlackChannel, "SKU調整処理通知", alertNotifies);
+    await postMessage(infoNotifySlackChannel, "SKU調整処理通知", infoNotifies);
 };
 
 const validateCMSData = async () => {
@@ -1165,8 +1107,7 @@ const validateCMSData = async () => {
   const variations = await getAllVariationSKUData();
   const skuCodeSet = new Set((await getAllSkus()).map(({ code }) => code));
   const notConnectedSKUVariations = variations.filter(
-    ({ ShopifyVariants_ShopifyCustomSKUs }) =>
-      ShopifyVariants_ShopifyCustomSKUs.length < 1,
+    ({ ShopifyVariants_ShopifyCustomSKUs }) => ShopifyVariants_ShopifyCustomSKUs.length < 1,
   );
   for (const variations of notConnectedSKUVariations) {
     const { skusJSON, id, variantName } = variations;
@@ -1209,20 +1150,12 @@ const validateCMSData = async () => {
         {
           title: "SKUコード",
           value: [
-            ...new Set(
-              inventorySKU.ShopifyInventoryOrderSKUs.map(
-                ({ sku }) => sku?.code,
-              ),
-            ),
+            ...new Set(inventorySKU.ShopifyInventoryOrderSKUs.map(({ sku }) => sku?.code)),
           ].join(","),
         },
         {
           title: "発注内訳ID",
-          value: [
-            ...new Set(
-              inventorySKU.ShopifyInventoryOrderSKUs.map(({ id }) => id),
-            ),
-          ].join(","),
+          value: [...new Set(inventorySKU.ShopifyInventoryOrderSKUs.map(({ id }) => id))].join(","),
         },
       ],
     });
@@ -1275,11 +1208,7 @@ const main = async () => {
   await ordersAndLineItems();
   const ids: string[] = []; // ここに個別に更新したいorder idを入れる
   for (const id of ids) {
-    console.log(
-      "Sync orders, lineItems and skus",
-      id,
-      `(${ids.indexOf(id) + 1}/${ids.length})`,
-    );
+    console.log("Sync orders, lineItems and skus", id, `(${ids.indexOf(id) + 1}/${ids.length})`);
     await orderAndLineItemsByOrderId(id);
   }
   console.log("Shift sku schedule");
