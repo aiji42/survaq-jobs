@@ -30,6 +30,14 @@ export class FBError extends Error {
   }
 }
 
+export class FBInsightError extends Error {
+  url: URL;
+  constructor(message: string, url: string | URL) {
+    super(message);
+    this.url = new URL(url.toString());
+  }
+}
+
 type FBPaging = {
   cursors: {
     before: string;
@@ -161,12 +169,12 @@ const asyncInsights = async <T extends InsightResponseData>(
   }
 
   if (status === "waiting") {
-    console.warn("Job Timeout", url);
+    console.warn("Job Timeout", url.toString());
     throw new Error("Job Timeout");
   }
   if (status === "failed") {
-    console.warn("Job Failed", url);
-    throw new Error("Job Failed");
+    console.warn("Job Failed", url.toString());
+    throw new FBInsightError("Job Failed", url);
   }
 
   return fetchGraphApiJson(makeGraphApiUrl(`/${json.report_run_id}/insights`));

@@ -3,6 +3,7 @@ import {
   AdAccount,
   deleteByField,
   FBError,
+  FBInsightError,
   getAdAccounts,
   getAdDailyInsights,
   getAdSetDailyInsights,
@@ -176,7 +177,7 @@ const makeAdSetReportRecords = async (
   const res = await Promise.all(
     addAccounts.map(async ({ id: adAccountId, name: adAccountName }) => {
       const res = await getAdSetDailyInsights(adAccountId, { begin, end }).catch((e) => {
-        if (e instanceof FBError) {
+        if (e instanceof FBError || e instanceof FBInsightError) {
           console.error(e);
           faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
           return [];
@@ -213,7 +214,7 @@ const makeAdReportRecords = async (
   const res = await Promise.all(
     addAccounts.map(async ({ id: adAccountId }) => {
       const res = await getAdDailyInsights(adAccountId, { begin, end }).catch((e) => {
-        if (e instanceof FBError) {
+        if (e instanceof FBError || e instanceof FBInsightError) {
           console.error(e);
           faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
           return [];
@@ -236,7 +237,8 @@ const makeAdReportRecords = async (
 
 const main = async () => {
   await adReports();
-  if (faileds.length > 0) {
+  // MEMO: failedsが1件ならよくあることなのでエラーにしない
+  if (faileds.length > 1) {
     console.error("Failed: ", faileds);
     throw new Error("Failed (but main process is success");
   }
