@@ -176,14 +176,20 @@ const makeAdSetReportRecords = async (
 ): Promise<AdSetReportRecord[]> => {
   const res = await Promise.all(
     addAccounts.map(async ({ id: adAccountId, name: adAccountName }) => {
-      const res = await getAdSetDailyInsights(adAccountId, { begin, end }).catch((e) => {
-        if (e instanceof FBError || e instanceof FBInsightError) {
-          console.error(e);
-          faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
-          return [];
-        }
-        throw e;
-      });
+      const res = await retryable(
+        () => getAdSetDailyInsights(adAccountId, { begin, end }),
+        1,
+        10,
+        [FBError, FBInsightError],
+        (e) => {
+          if (e instanceof FBError || e instanceof FBInsightError) {
+            console.warn(e);
+            faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
+            return [];
+          }
+          throw e;
+        },
+      );
       return res.map<AdSetReportRecord>((data) => ({
         id: `${data.adset_id}_${data.date_start}`,
         account_id: adAccountId,
@@ -213,14 +219,20 @@ const makeAdReportRecords = async (
 ): Promise<AdReportRecord[]> => {
   const res = await Promise.all(
     addAccounts.map(async ({ id: adAccountId }) => {
-      const res = await getAdDailyInsights(adAccountId, { begin, end }).catch((e) => {
-        if (e instanceof FBError || e instanceof FBInsightError) {
-          console.error(e);
-          faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
-          return [];
-        }
-        throw e;
-      });
+      const res = await retryable(
+        () => getAdDailyInsights(adAccountId, { begin, end }),
+        1,
+        10,
+        [FBError, FBInsightError],
+        (e) => {
+          if (e instanceof FBError || e instanceof FBInsightError) {
+            console.warn(e);
+            faileds.push({ id: `${adAccountId}-ads`, error: e.message });
+            return [];
+          }
+          throw e;
+        },
+      );
       return res.map<AdReportRecord>((data) => ({
         id: `${data.ad_id}_${data.date_start}`,
         name: data.ad_name,
@@ -235,10 +247,35 @@ const makeAdReportRecords = async (
   return res.flat();
 };
 
+const retryable = async <T>(
+  callback: () => Promise<T>,
+  retries: number,
+  waitTime: number,
+  retryErrors: (new (...args: any[]) => Error)[],
+  fallback: (err: any) => T,
+): Promise<T> => {
+  try {
+    return await callback();
+  } catch (error) {
+    // エラーがリトライ対象かどうか確認
+    const isRetryable = retryErrors.some((errorType) => error instanceof errorType);
+    if (isRetryable && retries > 0) {
+      console.log("Retry");
+      // 指定された時間待つ
+      await new Promise((resolve) => setTimeout(resolve, waitTime * 1000));
+      // リトライ
+      return retryable(callback, retries - 1, waitTime, retryErrors, fallback);
+    } else {
+      // リトライしない場合はfallbackを実行
+      return fallback(error);
+    }
+  }
+};
+
 const main = async () => {
   await adReports();
-  // MEMO: failedsが1件ならよくあることなのでエラーにしない
-  if (faileds.length > 1) {
+  // MEMO: failedsが3件以上の場合はエラーを投げる(多少のエラーは許容する)
+  if (faileds.length > 3) {
     console.error("Failed: ", faileds);
     throw new Error("Failed (but main process is success");
   }
