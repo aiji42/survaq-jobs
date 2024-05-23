@@ -33,7 +33,7 @@ type BQRecordBase = {
   cpa: number;
 };
 
-const faileds: { id: string; error: string }[] = [];
+const failedUrls: { id: string; error: string }[] = [];
 
 export const adReports = async (): Promise<void> => {
   const [end, begin] = (REPORT_DAY_RANGE.split("-") as [string, string])
@@ -178,13 +178,14 @@ const makeAdSetReportRecords = async (
     addAccounts.map(async ({ id: adAccountId, name: adAccountName }) => {
       const res = await retryable(
         () => getAdSetDailyInsights(adAccountId, { begin, end }),
+        `getAdSetDailyInsights(${adAccountId}, ${JSON.stringify({ begin, end })})`,
         1,
-        10,
+        30,
         [FBError, FBInsightError],
         (e) => {
           if (e instanceof FBError || e instanceof FBInsightError) {
-            console.warn(e);
-            faileds.push({ id: `${adAccountId}-adSets`, error: e.message });
+            console.warn("Failed to get ad set insights", adAccountId, e);
+            failedUrls.push({ id: `${adAccountId}-adSets`, error: e.message });
             return [];
           }
           throw e;
@@ -221,13 +222,14 @@ const makeAdReportRecords = async (
     addAccounts.map(async ({ id: adAccountId }) => {
       const res = await retryable(
         () => getAdDailyInsights(adAccountId, { begin, end }),
+        `getAdDailyInsights(${adAccountId}, ${JSON.stringify({ begin, end })})`,
         1,
-        10,
+        30,
         [FBError, FBInsightError],
         (e) => {
           if (e instanceof FBError || e instanceof FBInsightError) {
-            console.warn(e);
-            faileds.push({ id: `${adAccountId}-ads`, error: e.message });
+            console.warn("Failed to get ad insights", adAccountId, e);
+            failedUrls.push({ id: `${adAccountId}-ads`, error: e.message });
             return [];
           }
           throw e;
@@ -249,22 +251,23 @@ const makeAdReportRecords = async (
 
 const retryable = async <T>(
   callback: () => Promise<T>,
+  label: string,
   retries: number,
   waitTime: number,
-  retryErrors: (new (...args: any[]) => Error)[],
+  retryableErrors: (new (...args: any[]) => Error)[],
   fallback: (err: any) => T,
 ): Promise<T> => {
   try {
     return await callback();
   } catch (error) {
     // エラーがリトライ対象かどうか確認
-    const isRetryable = retryErrors.some((errorType) => error instanceof errorType);
+    const isRetryable = retryableErrors.some((errorType) => error instanceof errorType);
     if (isRetryable && retries > 0) {
-      console.log("Retry");
+      console.log("Retry:", label);
       // 指定された時間待つ
       await new Promise((resolve) => setTimeout(resolve, waitTime * 1000));
       // リトライ
-      return retryable(callback, retries - 1, waitTime, retryErrors, fallback);
+      return retryable(callback, label, retries - 1, waitTime, retryableErrors, fallback);
     } else {
       // リトライしない場合はfallbackを実行
       return fallback(error);
@@ -274,9 +277,10 @@ const retryable = async <T>(
 
 const main = async () => {
   await adReports();
-  // MEMO: failedsが3件以上の場合はエラーを投げる(多少のエラーは許容する)
-  if (faileds.length > 3) {
-    console.error("Failed: ", faileds);
+  // MEMO: failedUrlsが3件以上の場合はエラーを投げる(多少のエラーは許容する)
+  if (failedUrls.length) console.log("Failed urls: ", failedUrls);
+  if (failedUrls.length > 3) {
+    console.error("Failed: ", failedUrls);
     throw new Error("Failed (but main process is success");
   }
 };
