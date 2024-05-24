@@ -145,60 +145,6 @@ export const getAllSkus = async () => {
   });
 };
 
-export const getAllVariationSKUData = async () => {
-  return prisma.shopifyVariants.findMany({
-    select: {
-      id: true,
-      variantName: true,
-      skusJSON: true,
-      ShopifyVariants_ShopifyCustomSKUs: {
-        select: { ShopifyCustomSKUs: { select: { id: true } } },
-        where: { ShopifyCustomSKUs: { isNot: null } },
-      },
-      customSelects: true,
-    },
-    take: 10000,
-  });
-};
-
-export const getAllDuplicatedInventorySKUs = async () => {
-  const data = await prisma.shopifyInventoryOrderSKUs.groupBy({
-    by: ["inventoryOrderId", "skuId"],
-    having: {
-      skuId: {
-        _count: {
-          gt: 1,
-        },
-      },
-    },
-  });
-
-  if (!data.length) return [];
-
-  return prisma.shopifyInventoryOrders.findMany({
-    where: {
-      id: { in: data.map(({ inventoryOrderId }) => inventoryOrderId) },
-    },
-    include: {
-      ShopifyInventoryOrderSKUs: {
-        where: {
-          skuId: { in: data.flatMap(({ skuId }) => skuId ?? []) },
-        },
-        include: {
-          sku: true,
-        },
-      },
-    },
-  });
-};
-
-export const getAllProducts = async () => {
-  return prisma.shopifyProducts.findMany({
-    take: 1000,
-    include: { ShopifyProductGroups: true },
-  });
-};
-
 export const updateSku = async (
   code: string,
   data: Pick<

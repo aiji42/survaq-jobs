@@ -12,9 +12,6 @@ import {
   postMessage,
   MessageAttachment,
   getAllSkus,
-  getAllVariationSKUData,
-  getAllProducts,
-  getAllDuplicatedInventorySKUs,
   calcSKUDeliveryScheduleDaysGap,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
@@ -26,7 +23,6 @@ import {
   getShippedCounts,
   updatableInventoryOrdersAndNextInventoryOrder,
 } from "./sku";
-import { cmsProductLink, cmsVariationLink } from "./productAndVariation";
 
 type EdgesNode<T> = {
   edges: {
@@ -1091,86 +1087,6 @@ const skuScheduleShift = async () => {
     await postMessage(infoNotifySlackChannel, "SKU調整処理通知", infoNotifies);
 };
 
-const validateCMSData = async () => {
-  const products = await getAllProducts();
-  const alerts: MessageAttachment[] = [];
-  for (const product of products) {
-    if (!product.productGroupId)
-      alerts.push({
-        title: product.productName,
-        title_link: cmsProductLink(product.id),
-        text: "商品にグループが設定されていません",
-        color: "danger",
-      });
-  }
-
-  const variations = await getAllVariationSKUData();
-  const skuCodeSet = new Set((await getAllSkus()).map(({ code }) => code));
-  const notConnectedSKUVariations = variations.filter(
-    ({ ShopifyVariants_ShopifyCustomSKUs }) => ShopifyVariants_ShopifyCustomSKUs.length < 1,
-  );
-  for (const variations of notConnectedSKUVariations) {
-    const { skusJSON, id, variantName } = variations;
-    if (!skusJSON) {
-      alerts.push({
-        title: variantName,
-        title_link: cmsVariationLink(id),
-        text: "バリエーションにSKUが設定されていません",
-        color: "danger",
-      });
-      continue;
-    }
-    let skus: string[] = [];
-    try {
-      skus = JSON.parse(skusJSON);
-      if (skus.some((sku) => !skuCodeSet.has(sku)))
-        alerts.push({
-          title: variantName,
-          title_link: cmsVariationLink(id),
-          text: "設定したSKUコード(skusJSON)が間違っています。存在しないコードが設定されています。",
-          color: "danger",
-        });
-    } catch (_) {
-      alerts.push({
-        title: variantName,
-        title_link: cmsVariationLink(id),
-        text: "skusJSONの形式が間違っています。",
-        color: "danger",
-      });
-    }
-  }
-
-  const inventorySKUs = await getAllDuplicatedInventorySKUs();
-  for (const inventorySKU of inventorySKUs) {
-    alerts.push({
-      title: `発注データの重複: ${inventorySKU.name}`,
-      text: `発注ID: ${inventorySKU.id}の発注データの中で、同一SKUに対しての内訳が複数登録されているようです。`,
-      color: "danger",
-      fields: [
-        {
-          title: "SKUコード",
-          value: [
-            ...new Set(inventorySKU.ShopifyInventoryOrderSKUs.map(({ sku }) => sku?.code)),
-          ].join(","),
-        },
-        {
-          title: "発注内訳ID",
-          value: [...new Set(inventorySKU.ShopifyInventoryOrderSKUs.map(({ id }) => id))].join(","),
-        },
-      ],
-    });
-  }
-
-  if (alerts.length)
-    for (const messageAttachments of sliceByNumber(alerts, 10)) {
-      await postMessage(
-        alertNotifySlackChannel,
-        "設定値に問題が発生しています。確認してください。",
-        messageAttachments,
-      );
-    }
-};
-
 const skuDeliveryScheduleGap = async () => {
   const gaps = await calcSKUDeliveryScheduleDaysGap();
   // BigQueryに格納する前に同じ日のデータを削除
@@ -1200,8 +1116,6 @@ const decode = <T extends string | null | undefined>(src: T): T => {
 };
 
 const main = async () => {
-  console.log("Validate CMS data");
-  await validateCMSData();
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
   console.log("Sync orders, lineItems and skus");
