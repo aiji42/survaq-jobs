@@ -349,15 +349,6 @@ const skuScheduleShift = async () => {
 
     // 出荷台数を実在庫数から引く(=最新の在庫数)
     const inventory = sku.inventory - shippedCount;
-    if (inventory < 0) {
-      alertNotifies.push({
-        title: sku.code,
-        title_link: cmsSKULink(sku.id),
-        text: "在庫数がマイナスになっています",
-        color: "danger",
-        fields: [{ title: "inventory", value: String(inventory) }],
-      });
-    }
 
     try {
       const { updatableInventoryOrders, nextInventoryOrder, rest } =
