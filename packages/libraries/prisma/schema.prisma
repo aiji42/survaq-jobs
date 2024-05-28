@@ -73,24 +73,25 @@ model GoogleMerchantCenter {
 }
 
 model ShopifyCustomSKUs {
-  id                                Int                                 @id @default(autoincrement())
-  createdAt                         DateTime?                           @db.Timestamptz(6)
-  updatedAt                         DateTime?                           @db.Timestamptz(6)
-  code                              String                              @unique(map: "shopifycustomskus_code_unique") @db.VarChar(255)
-  name                              String                              @db.VarChar(255)
-  subName                           String?                             @db.VarChar(255)
-  inventory                         Int                                 @default(0)
-  unshippedOrderCount               Int                                 @default(0)
-  lastSyncedAt                      DateTime?                           @db.Timestamp(6)
-  stockBuffer                       Int?                                @default(5)
-  skipDeliveryCalc                  Boolean?                            @default(false)
-  displayName                       String?                             @db.VarChar(255)
-  sortNumber                        Int                                 @default(0)
-  currentInventoryOrderSKUId        Int?
-  faultyRate                        Float                               @default(0) @db.Real
-  currentInventoryOrderSKU          ShopifyInventoryOrderSKUs?          @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs", fields: [currentInventoryOrderSKUId], references: [id], onUpdate: NoAction, map: "shopifycustomskus_currentinventoryorderskuid_foreign")
-  inventoryOrderSKUs                ShopifyInventoryOrderSKUs[]         @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs")
-  ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
+  id                                       Int                                        @id @default(autoincrement())
+  createdAt                                DateTime?                                  @db.Timestamptz(6)
+  updatedAt                                DateTime?                                  @db.Timestamptz(6)
+  code                                     String                                     @unique(map: "shopifycustomskus_code_unique") @db.VarChar(255)
+  name                                     String                                     @db.VarChar(255)
+  subName                                  String?                                    @db.VarChar(255)
+  inventory                                Int                                        @default(0)
+  unshippedOrderCount                      Int                                        @default(0)
+  lastSyncedAt                             DateTime?                                  @db.Timestamp(6)
+  stockBuffer                              Int?                                       @default(5)
+  skipDeliveryCalc                         Boolean?                                   @default(false)
+  displayName                              String?                                    @db.VarChar(255)
+  sortNumber                               Int                                        @default(0)
+  currentInventoryOrderSKUId               Int?
+  faultyRate                               Float                                      @default(0) @db.Real
+  ShopifyCustomSKUGroups_ShopifyCustomSKUs ShopifyCustomSKUGroups_ShopifyCustomSKUs[]
+  currentInventoryOrderSKU                 ShopifyInventoryOrderSKUs?                 @relation("ShopifyCustomSKUs_currentInventoryOrderSKUIdToShopifyInventoryOrderSKUs", fields: [currentInventoryOrderSKUId], references: [id], onUpdate: NoAction, map: "shopifycustomskus_currentinventoryorderskuid_foreign")
+  inventoryOrderSKUs                       ShopifyInventoryOrderSKUs[]                @relation("ShopifyInventoryOrderSKUs_skuIdToShopifyCustomSKUs")
+  ShopifyVariants_ShopifyCustomSKUs        ShopifyVariants_ShopifyCustomSKUs[]
 }
 
 model ShopifyPages {
@@ -146,6 +147,7 @@ model ShopifyVariants {
   variantId                         String                              @unique(map: "shopifyvariants_variantid_unique") @db.VarChar(255)
   skuLabel                          String?                             @db.VarChar(255)
   skusJSON                          String?                             @db.VarChar(255)
+  skuGroupsJSON                     String?                             @db.VarChar(255)
   ShopifyProducts                   ShopifyProducts?                    @relation(fields: [product], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "shopifyvariants_product_foreign")
   ShopifyVariants_ShopifyCustomSKUs ShopifyVariants_ShopifyCustomSKUs[]
 }
@@ -165,7 +167,7 @@ model directus_activity {
   user               String?              @db.Uuid
   timestamp          DateTime             @default(now()) @db.Timestamptz(6)
   ip                 String?              @db.VarChar(50)
-  user_agent         String?              @db.VarChar(255)
+  user_agent         String?
   collection         String               @db.VarChar(64)
   item               String               @db.VarChar(255)
   comment            String?
@@ -192,9 +194,12 @@ model directus_collections {
   sort                       Int?
   group                      String?                @db.VarChar(64)
   collapse                   String                 @default("open") @db.VarChar(255)
+  preview_url                String?                @db.VarChar(255)
+  versioning                 Boolean                @default(false)
   directus_collections       directus_collections?  @relation("directus_collectionsTodirectus_collections", fields: [group], references: [collection], onDelete: NoAction, onUpdate: NoAction, map: "directus_collections_group_foreign")
   other_directus_collections directus_collections[] @relation("directus_collectionsTodirectus_collections")
   directus_shares            directus_shares[]
+  directus_versions          directus_versions[]
 }
 
 model directus_dashboards {
@@ -232,35 +237,40 @@ model directus_fields {
 }
 
 model directus_files {
-  id                                                                    String              @id @db.Uuid
-  storage                                                               String              @db.VarChar(255)
-  filename_disk                                                         String?             @db.VarChar(255)
-  filename_download                                                     String              @db.VarChar(255)
-  title                                                                 String?             @db.VarChar(255)
-  type                                                                  String?             @db.VarChar(255)
-  folder                                                                String?             @db.Uuid
-  uploaded_by                                                           String?             @db.Uuid
-  uploaded_on                                                           DateTime            @default(now()) @db.Timestamptz(6)
-  modified_by                                                           String?             @db.Uuid
-  modified_on                                                           DateTime            @default(now()) @db.Timestamptz(6)
-  charset                                                               String?             @db.VarChar(50)
-  filesize                                                              BigInt?
-  width                                                                 Int?
-  height                                                                Int?
-  duration                                                              Int?
-  embed                                                                 String?             @db.VarChar(200)
-  description                                                           String?
-  location                                                              String?
-  tags                                                                  String?
-  metadata                                                              Json?               @db.Json
-  ShopifyPages_ShopifyPages_faviconTodirectus_files                     ShopifyPages[]      @relation("ShopifyPages_faviconTodirectus_files")
-  ShopifyPages_ShopifyPages_logoTodirectus_files                        ShopifyPages[]      @relation("ShopifyPages_logoTodirectus_files")
-  directus_folders                                                      directus_folders?   @relation(fields: [folder], references: [id], onUpdate: NoAction, map: "directus_files_folder_foreign")
-  directus_users_directus_files_modified_byTodirectus_users             directus_users?     @relation("directus_files_modified_byTodirectus_users", fields: [modified_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_files_modified_by_foreign")
-  directus_users_directus_files_uploaded_byTodirectus_users             directus_users?     @relation("directus_files_uploaded_byTodirectus_users", fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_files_uploaded_by_foreign")
-  directus_settings_directus_settings_project_logoTodirectus_files      directus_settings[] @relation("directus_settings_project_logoTodirectus_files")
-  directus_settings_directus_settings_public_backgroundTodirectus_files directus_settings[] @relation("directus_settings_public_backgroundTodirectus_files")
-  directus_settings_directus_settings_public_foregroundTodirectus_files directus_settings[] @relation("directus_settings_public_foregroundTodirectus_files")
+  id                                                                      String              @id @db.Uuid
+  storage                                                                 String              @db.VarChar(255)
+  filename_disk                                                           String?             @db.VarChar(255)
+  filename_download                                                       String              @db.VarChar(255)
+  title                                                                   String?             @db.VarChar(255)
+  type                                                                    String?             @db.VarChar(255)
+  folder                                                                  String?             @db.Uuid
+  uploaded_by                                                             String?             @db.Uuid
+  uploaded_on                                                             DateTime            @default(now()) @db.Timestamptz(6)
+  modified_by                                                             String?             @db.Uuid
+  modified_on                                                             DateTime            @default(now()) @db.Timestamptz(6)
+  charset                                                                 String?             @db.VarChar(50)
+  filesize                                                                BigInt?
+  width                                                                   Int?
+  height                                                                  Int?
+  duration                                                                Int?
+  embed                                                                   String?             @db.VarChar(200)
+  description                                                             String?
+  location                                                                String?
+  tags                                                                    String?
+  metadata                                                                Json?               @db.Json
+  focal_point_x                                                           Int?
+  focal_point_y                                                           Int?
+  ShopifyPages_ShopifyPages_faviconTodirectus_files                       ShopifyPages[]      @relation("ShopifyPages_faviconTodirectus_files")
+  ShopifyPages_ShopifyPages_logoTodirectus_files                          ShopifyPages[]      @relation("ShopifyPages_logoTodirectus_files")
+  TransactionMails_TransactionMails_receiversResourceTodirectus_files     TransactionMails[]  @relation("TransactionMails_receiversResourceTodirectus_files")
+  TransactionMails_TransactionMails_testReceiversResourceTodirectus_files TransactionMails[]  @relation("TransactionMails_testReceiversResourceTodirectus_files")
+  directus_folders                                                        directus_folders?   @relation(fields: [folder], references: [id], onUpdate: NoAction, map: "directus_files_folder_foreign")
+  directus_users_directus_files_modified_byTodirectus_users               directus_users?     @relation("directus_files_modified_byTodirectus_users", fields: [modified_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_files_modified_by_foreign")
+  directus_users_directus_files_uploaded_byTodirectus_users               directus_users?     @relation("directus_files_uploaded_byTodirectus_users", fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_files_uploaded_by_foreign")
+  directus_settings_directus_settings_project_logoTodirectus_files        directus_settings[] @relation("directus_settings_project_logoTodirectus_files")
+  directus_settings_directus_settings_public_backgroundTodirectus_files   directus_settings[] @relation("directus_settings_public_backgroundTodirectus_files")
+  directus_settings_directus_settings_public_faviconTodirectus_files      directus_settings[] @relation("directus_settings_public_faviconTodirectus_files")
+  directus_settings_directus_settings_public_foregroundTodirectus_files   directus_settings[] @relation("directus_settings_public_foregroundTodirectus_files")
 }
 
 model directus_flows {
@@ -278,6 +288,7 @@ model directus_flows {
   user_created        String?               @db.Uuid
   directus_users      directus_users?       @relation(fields: [user_created], references: [id], onUpdate: NoAction, map: "directus_flows_user_created_foreign")
   directus_operations directus_operations[]
+  directus_webhooks   directus_webhooks[]
 }
 
 model directus_folders {
@@ -402,9 +413,11 @@ model directus_revisions {
   data                     Json?                @db.Json
   delta                    Json?                @db.Json
   parent                   Int?
+  version                  String?              @db.Uuid
   directus_activity        directus_activity    @relation(fields: [activity], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "directus_revisions_activity_foreign")
   directus_revisions       directus_revisions?  @relation("directus_revisionsTodirectus_revisions", fields: [parent], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_revisions_parent_foreign")
   other_directus_revisions directus_revisions[] @relation("directus_revisionsTodirectus_revisions")
+  directus_versions        directus_versions?   @relation(fields: [version], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "directus_revisions_version_foreign")
 }
 
 model directus_roles {
@@ -427,7 +440,7 @@ model directus_sessions {
   user            String?          @db.Uuid
   expires         DateTime         @db.Timestamptz(6)
   ip              String?          @db.VarChar(255)
-  user_agent      String?          @db.VarChar(255)
+  user_agent      String?
   share           String?          @db.Uuid
   origin          String?          @db.VarChar(255)
   directus_shares directus_shares? @relation(fields: [share], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "directus_sessions_share_foreign")
@@ -438,7 +451,7 @@ model directus_settings {
   id                                                                 Int               @id @default(autoincrement())
   project_name                                                       String            @default("Directus") @db.VarChar(100)
   project_url                                                        String?           @db.VarChar(255)
-  project_color                                                      String?           @db.VarChar(50)
+  project_color                                                      String            @default("#6644FF") @db.VarChar(255)
   project_logo                                                       String?           @db.Uuid
   public_foreground                                                  String?           @db.Uuid
   public_background                                                  String?           @db.Uuid
@@ -453,32 +466,41 @@ model directus_settings {
   mapbox_key                                                         String?           @db.VarChar(255)
   module_bar                                                         Json?             @db.Json
   project_descriptor                                                 String?           @db.VarChar(100)
-  translation_strings                                                Json?             @db.Json
   default_language                                                   String            @default("en-US") @db.VarChar(255)
   custom_aspect_ratios                                               Json?             @db.Json
+  public_favicon                                                     String?           @db.Uuid
+  default_appearance                                                 String            @default("auto") @db.VarChar(255)
+  default_theme_light                                                String?           @db.VarChar(255)
+  theme_light_overrides                                              Json?             @db.Json
+  default_theme_dark                                                 String?           @db.VarChar(255)
+  theme_dark_overrides                                               Json?             @db.Json
+  report_error_url                                                   String?           @db.VarChar(255)
+  report_bug_url                                                     String?           @db.VarChar(255)
+  report_feature_url                                                 String?           @db.VarChar(255)
   directus_files_directus_settings_project_logoTodirectus_files      directus_files?   @relation("directus_settings_project_logoTodirectus_files", fields: [project_logo], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_settings_project_logo_foreign")
   directus_files_directus_settings_public_backgroundTodirectus_files directus_files?   @relation("directus_settings_public_backgroundTodirectus_files", fields: [public_background], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_settings_public_background_foreign")
+  directus_files_directus_settings_public_faviconTodirectus_files    directus_files?   @relation("directus_settings_public_faviconTodirectus_files", fields: [public_favicon], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_settings_public_favicon_foreign")
   directus_files_directus_settings_public_foregroundTodirectus_files directus_files?   @relation("directus_settings_public_foregroundTodirectus_files", fields: [public_foreground], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_settings_public_foreground_foreign")
   directus_folders                                                   directus_folders? @relation(fields: [storage_default_folder], references: [id], onUpdate: NoAction, map: "directus_settings_storage_default_folder_foreign")
 }
 
 model directus_shares {
-  id                   String                @id @db.Uuid
-  name                 String?               @db.VarChar(255)
-  collection           String?               @db.VarChar(64)
-  item                 String?               @db.VarChar(255)
-  role                 String?               @db.Uuid
-  password             String?               @db.VarChar(255)
-  user_created         String?               @db.Uuid
-  date_created         DateTime?             @default(now()) @db.Timestamptz(6)
-  date_start           DateTime?             @db.Timestamptz(6)
-  date_end             DateTime?             @db.Timestamptz(6)
-  times_used           Int?                  @default(0)
+  id                   String               @id @db.Uuid
+  name                 String?              @db.VarChar(255)
+  collection           String               @db.VarChar(64)
+  item                 String               @db.VarChar(255)
+  role                 String?              @db.Uuid
+  password             String?              @db.VarChar(255)
+  user_created         String?              @db.Uuid
+  date_created         DateTime?            @default(now()) @db.Timestamptz(6)
+  date_start           DateTime?            @db.Timestamptz(6)
+  date_end             DateTime?            @db.Timestamptz(6)
+  times_used           Int?                 @default(0)
   max_uses             Int?
   directus_sessions    directus_sessions[]
-  directus_collections directus_collections? @relation(fields: [collection], references: [collection], onDelete: Cascade, onUpdate: NoAction, map: "directus_shares_collection_foreign")
-  directus_roles       directus_roles?       @relation(fields: [role], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "directus_shares_role_foreign")
-  directus_users       directus_users?       @relation(fields: [user_created], references: [id], onUpdate: NoAction, map: "directus_shares_user_created_foreign")
+  directus_collections directus_collections @relation(fields: [collection], references: [collection], onDelete: Cascade, onUpdate: NoAction, map: "directus_shares_collection_foreign")
+  directus_roles       directus_roles?      @relation(fields: [role], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "directus_shares_role_foreign")
+  directus_users       directus_users?      @relation(fields: [user_created], references: [id], onUpdate: NoAction, map: "directus_shares_user_created_foreign")
 }
 
 model directus_users {
@@ -493,7 +515,6 @@ model directus_users {
   tags                                                                    Json?                    @db.Json
   avatar                                                                  String?                  @db.Uuid
   language                                                                String?                  @db.VarChar(255)
-  theme                                                                   String?                  @default("auto") @db.VarChar(20)
   tfa_secret                                                              String?                  @db.VarChar(255)
   status                                                                  String                   @default("active") @db.VarChar(16)
   role                                                                    String?                  @db.Uuid
@@ -504,6 +525,11 @@ model directus_users {
   external_identifier                                                     String?                  @unique(map: "directus_users_external_identifier_unique") @db.VarChar(255)
   auth_data                                                               Json?                    @db.Json
   email_notifications                                                     Boolean?                 @default(true)
+  appearance                                                              String?                  @db.VarChar(255)
+  theme_dark                                                              String?                  @db.VarChar(255)
+  theme_light                                                             String?                  @db.VarChar(255)
+  theme_light_overrides                                                   Json?                    @db.Json
+  theme_dark_overrides                                                    Json?                    @db.Json
   directus_dashboards                                                     directus_dashboards[]
   directus_files_directus_files_modified_byTodirectus_users               directus_files[]         @relation("directus_files_modified_byTodirectus_users")
   directus_files_directus_files_uploaded_byTodirectus_users               directus_files[]         @relation("directus_files_uploaded_byTodirectus_users")
@@ -516,18 +542,23 @@ model directus_users {
   directus_sessions                                                       directus_sessions[]
   directus_shares                                                         directus_shares[]
   directus_roles                                                          directus_roles?          @relation(fields: [role], references: [id], onUpdate: NoAction, map: "directus_users_role_foreign")
+  directus_versions_directus_versions_user_createdTodirectus_users        directus_versions[]      @relation("directus_versions_user_createdTodirectus_users")
+  directus_versions_directus_versions_user_updatedTodirectus_users        directus_versions[]      @relation("directus_versions_user_updatedTodirectus_users")
 }
 
 model directus_webhooks {
-  id          Int     @id @default(autoincrement())
-  name        String  @db.VarChar(255)
-  method      String  @default("POST") @db.VarChar(10)
-  url         String  @db.VarChar(255)
-  status      String  @default("active") @db.VarChar(10)
-  data        Boolean @default(true)
-  actions     String  @db.VarChar(100)
-  collections String  @db.VarChar(255)
-  headers     Json?   @db.Json
+  id                            Int             @id @default(autoincrement())
+  name                          String          @db.VarChar(255)
+  method                        String          @default("POST") @db.VarChar(10)
+  url                           String          @db.VarChar(255)
+  status                        String          @default("active") @db.VarChar(10)
+  data                          Boolean         @default(true)
+  actions                       String          @db.VarChar(100)
+  collections                   String          @db.VarChar(255)
+  headers                       Json?           @db.Json
+  was_active_before_deprecation Boolean         @default(false)
+  migrated_flow                 String?         @db.Uuid
+  directus_flows                directus_flows? @relation(fields: [migrated_flow], references: [id], onUpdate: NoAction, map: "directus_webhooks_migrated_flow_foreign")
 }
 
 model ShopifyInventoryOrderSKUs {
@@ -555,5 +586,94 @@ model ShopifyInventoryOrders {
   deliverySchedule          String?                     @db.VarChar(255)
   note                      String?
   status                    String?                     @db.VarChar(255)
+  free01                    String?                     @db.VarChar(255)
+  free02                    String?                     @db.VarChar(255)
+  free03                    String?                     @db.VarChar(255)
+  free04                    String?                     @db.VarChar(255)
+  free05                    String?                     @db.VarChar(255)
+  free06                    String?                     @db.VarChar(255)
+  free07                    String?                     @db.VarChar(255)
+  free08                    String?                     @db.VarChar(255)
+  free09                    String?                     @db.VarChar(255)
+  free10                    String?                     @db.VarChar(255)
   ShopifyInventoryOrderSKUs ShopifyInventoryOrderSKUs[]
+}
+
+model CancelRequests {
+  id        Int       @id @default(autoincrement())
+  createdAt DateTime? @db.Timestamptz(6)
+  updatedAt DateTime? @db.Timestamptz(6)
+  store     String    @db.VarChar(255)
+  status    String    @db.VarChar(255)
+  note      String?
+  log       String?
+  reason    String?
+  orderKey  String    @unique(map: "cancelrequests_orderkey_unique") @db.VarChar(255)
+}
+
+model ShopifyCustomSKUGroups {
+  id                                       Int                                        @id @default(autoincrement())
+  createdAt                                DateTime?                                  @db.Timestamptz(6)
+  updatedAt                                DateTime?                                  @db.Timestamptz(6)
+  code                                     String                                     @unique(map: "shopifycustomskugroups_code_unique") @db.VarChar(255)
+  name                                     String                                     @db.VarChar(255)
+  ShopifyCustomSKUGroups_ShopifyCustomSKUs ShopifyCustomSKUGroups_ShopifyCustomSKUs[]
+}
+
+model ShopifyCustomSKUGroups_ShopifyCustomSKUs {
+  id                        Int                     @id @default(autoincrement())
+  ShopifyCustomSKUGroups_id Int?
+  ShopifyCustomSKUs_id      Int?
+  sort                      Int?
+  ShopifyCustomSKUGroups    ShopifyCustomSKUGroups? @relation(fields: [ShopifyCustomSKUGroups_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "shopifycustomskugroups_shopifycustomskus_s__42ac7dc2_foreign")
+  ShopifyCustomSKUs         ShopifyCustomSKUs?      @relation(fields: [ShopifyCustomSKUs_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "shopifycustomskugroups_shopifycustomskus_sh__9b1c1d9_foreign")
+}
+
+model TransactionMails {
+  id                                                                    Int             @id @default(autoincrement())
+  createdAt                                                             DateTime?       @db.Timestamptz(6)
+  updatedAt                                                             DateTime?       @db.Timestamptz(6)
+  receiversResource                                                     String?         @db.Uuid
+  subject                                                               String          @db.VarChar(255)
+  body                                                                  String
+  from                                                                  String          @db.VarChar(255)
+  fromName                                                              String          @db.VarChar(255)
+  replyTo                                                               String          @db.VarChar(255)
+  log                                                                   String?
+  status                                                                String          @default("preparing") @db.VarChar(255)
+  testReceiversResource                                                 String?         @db.Uuid
+  directus_files_TransactionMails_receiversResourceTodirectus_files     directus_files? @relation("TransactionMails_receiversResourceTodirectus_files", fields: [receiversResource], references: [id], onUpdate: NoAction, map: "transactionmails_receiversresource_foreign")
+  directus_files_TransactionMails_testReceiversResourceTodirectus_files directus_files? @relation("TransactionMails_testReceiversResourceTodirectus_files", fields: [testReceiversResource], references: [id], onUpdate: NoAction, map: "transactionmails_testreceiversresource_foreign")
+}
+
+model directus_extensions {
+  enabled Boolean @default(true)
+  id      String  @id @db.Uuid
+  folder  String  @db.VarChar(255)
+  source  String  @db.VarChar(255)
+  bundle  String? @db.Uuid
+}
+
+model directus_translations {
+  id       String @id @db.Uuid
+  language String @db.VarChar(255)
+  key      String @db.VarChar(255)
+  value    String
+}
+
+model directus_versions {
+  id                                                            String               @id @db.Uuid
+  key                                                           String               @db.VarChar(64)
+  name                                                          String?              @db.VarChar(255)
+  collection                                                    String               @db.VarChar(64)
+  item                                                          String               @db.VarChar(255)
+  hash                                                          String?              @db.VarChar(255)
+  date_created                                                  DateTime?            @default(now()) @db.Timestamptz(6)
+  date_updated                                                  DateTime?            @default(now()) @db.Timestamptz(6)
+  user_created                                                  String?              @db.Uuid
+  user_updated                                                  String?              @db.Uuid
+  directus_revisions                                            directus_revisions[]
+  directus_collections                                          directus_collections @relation(fields: [collection], references: [collection], onDelete: Cascade, onUpdate: NoAction, map: "directus_versions_collection_foreign")
+  directus_users_directus_versions_user_createdTodirectus_users directus_users?      @relation("directus_versions_user_createdTodirectus_users", fields: [user_created], references: [id], onUpdate: NoAction, map: "directus_versions_user_created_foreign")
+  directus_users_directus_versions_user_updatedTodirectus_users directus_users?      @relation("directus_versions_user_updatedTodirectus_users", fields: [user_updated], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "directus_versions_user_updated_foreign")
 }
