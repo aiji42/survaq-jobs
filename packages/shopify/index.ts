@@ -9,20 +9,13 @@ import {
   getShopifyProductGroups,
   getGoogleMerchantCenter,
   updateSku,
-  postMessage,
-  MessageAttachment,
   getAllSkus,
   calcSKUDeliveryScheduleDaysGap,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
 import { storage } from "./cloud-storage";
 import { parse } from "csv-parse/sync";
-import {
-  cmsSKULink,
-  getPendingShipmentCounts,
-  getShippedCounts,
-  updatableInventoryOrdersAndNextInventoryOrder,
-} from "./sku";
+import { getShippedCounts } from "./sku";
 
 type EdgesNode<T> = {
   edges: {
@@ -38,9 +31,6 @@ type WithPageInfo<T> = T & {
 };
 
 const shopify = createShopifyClient();
-
-const alertNotifySlackChannel = "#notify-cms";
-const infoNotifySlackChannel = "#notify-cms-info";
 
 const productListQuery = (query: string, cursor: null | string) => `{
   products(first: 50, query: "${query}" after: ${cursor ? `"${cursor}"` : "null"}) {
@@ -328,11 +318,8 @@ export const smartShoppingPerformance = async () => {
   }
 };
 
-const skuScheduleShift = async () => {
-  const alertNotifies: MessageAttachment[] = [];
-  const infoNotifies: MessageAttachment[] = [];
+const updateInventories = async () => {
   const skusOnDB = await getAllSkus();
-  const pendingShipmentCounts = await getPendingShipmentCounts(skusOnDB.map(({ code }) => code));
   const shippedCounts = await getShippedCounts(
     skusOnDB.map(({ code, lastSyncedAt }) => ({
       code,
@@ -341,84 +328,21 @@ const skuScheduleShift = async () => {
   );
 
   for (const sku of skusOnDB) {
-    const unshippedOrderCount =
-      pendingShipmentCounts.find(({ code }) => code === sku.code)?.count ?? 0;
     const { count: shippedCount = 0, lastShippedAt } =
       shippedCounts.find(({ code }) => code === sku.code) ?? {};
-    const lastSyncedAt = lastShippedAt?.value ?? sku.lastSyncedAt;
 
-    // 出荷台数を実在庫数から引く(=最新の在庫数)
+    const lastSyncedAt = lastShippedAt?.value ?? sku.lastSyncedAt;
     const inventory = sku.inventory - shippedCount;
 
-    try {
-      const { updatableInventoryOrders, nextInventoryOrder, rest } =
-        updatableInventoryOrdersAndNextInventoryOrder(inventory, unshippedOrderCount, sku);
+    if (sku.inventory !== inventory || sku.lastSyncedAt !== lastSyncedAt) {
+      console.log("update sku:", sku.code);
 
-      if (
-        sku.inventory !== inventory ||
-        sku.unshippedOrderCount !== unshippedOrderCount ||
-        sku.lastSyncedAt !== lastSyncedAt ||
-        sku.currentInventoryOrderSKUId !== nextInventoryOrder.id ||
-        updatableInventoryOrders.length
-      ) {
-        console.log("update sku:", sku.code);
-
-        if (sku.currentInventoryOrderSKUId !== nextInventoryOrder.id)
-          infoNotifies.push({
-            title: sku.code,
-            title_link: cmsSKULink(sku.id),
-            text: "下記SKUの販売枠を変更しました",
-            color: "good",
-            fields: [{ title: "新しい販売枠", value: nextInventoryOrder.title }],
-          });
-
-        await updateSku(sku.code, {
-          inventory,
-          unshippedOrderCount,
-          lastSyncedAt,
-          currentInventoryOrderSKU: {
-            ...(nextInventoryOrder.id
-              ? { connect: { id: nextInventoryOrder.id } }
-              : { disconnect: true }),
-          },
-          inventoryOrderSKUs: {
-            update: updatableInventoryOrders.map(({ id, heldQuantity }) => ({
-              where: { id },
-              data: { heldQuantity },
-            })),
-          },
-        });
-
-        if (rest > 0)
-          throw new Error(
-            "発注データが不足しており、販売可能枠のシフトができません。すべての入荷待ち件数が差し押さえられています。",
-          );
-      }
-    } catch (e) {
-      if (!(e instanceof Error)) {
-        console.error(e);
-        throw e;
-      }
-      console.log("skuScheduleShift", sku.code, e.message);
-      alertNotifies.push({
-        title: sku.code,
-        ...(sku ? { title_link: cmsSKULink(sku.id) } : undefined),
-        color: "danger",
-        text: e.message,
-        fields: [
-          {
-            title: "現在販売枠",
-            value: sku.currentInventoryOrderSKU?.ShopifyInventoryOrders.name ?? "実在庫",
-          },
-        ],
+      await updateSku(sku.code, {
+        inventory,
+        lastSyncedAt,
       });
     }
   }
-
-  if (alertNotifies.length)
-    await postMessage(alertNotifySlackChannel, "SKU調整処理通知", alertNotifies);
-  if (infoNotifies.length)
-    await postMessage(infoNotifySlackChannel, "SKU調整処理通知", infoNotifies);
 };
 
 const skuDeliveryScheduleGap = async () => {
@@ -443,8 +367,8 @@ const skuDeliveryScheduleGap = async () => {
 const main = async () => {
   console.log("Sync products and variants");
   await Promise.all([products(), variants()]);
-  console.log("Shift sku schedule");
-  await skuScheduleShift();
+  console.log("Update inventories");
+  await updateInventories();
   console.log("Sync smart shopping performance");
   await smartShoppingPerformance();
   console.log("Calc sku delivery schedule gap");
