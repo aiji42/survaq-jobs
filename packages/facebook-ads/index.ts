@@ -4,6 +4,7 @@ import {
   deleteByField,
   FBError,
   FBInsightError,
+  FBInsightTimeoutError,
   getAdAccounts,
   getAdDailyInsights,
   getAdSetDailyInsights,
@@ -183,7 +184,11 @@ const makeAdSetReportRecords = async (
         30,
         [FBError, FBInsightError],
         (e) => {
-          if (e instanceof FBError || e instanceof FBInsightError) {
+          if (
+            e instanceof FBError ||
+            e instanceof FBInsightError ||
+            e instanceof FBInsightTimeoutError
+          ) {
             console.warn("Failed to get ad set insights", adAccountId, e);
             failedUrls.push({ id: `${adAccountId}-adSets`, error: e.message });
             return [];
@@ -227,7 +232,11 @@ const makeAdReportRecords = async (
         30,
         [FBError, FBInsightError],
         (e) => {
-          if (e instanceof FBError || e instanceof FBInsightError) {
+          if (
+            e instanceof FBError ||
+            e instanceof FBInsightError ||
+            e instanceof FBInsightTimeoutError
+          ) {
             console.warn("Failed to get ad insights", adAccountId, e);
             failedUrls.push({ id: `${adAccountId}-ads`, error: e.message });
             return [];

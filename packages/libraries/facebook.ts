@@ -38,6 +38,14 @@ export class FBInsightError extends Error {
   }
 }
 
+export class FBInsightTimeoutError extends Error {
+  url: URL;
+  constructor(message: string, url: string | URL) {
+    super(message);
+    this.url = new URL(url.toString());
+  }
+}
+
 type FBPaging = {
   cursors: {
     before: string;
@@ -170,7 +178,7 @@ const asyncInsights = async <T extends InsightResponseData>(
 
   if (status === "waiting") {
     console.warn("Job Timeout", url.toString());
-    throw new Error("Job Timeout");
+    throw new FBInsightTimeoutError("Job Timeout", url);
   }
   if (status === "failed") {
     console.warn("Job Failed", url.toString());
