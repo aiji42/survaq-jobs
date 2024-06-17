@@ -15,8 +15,6 @@ import {
   calcSKUDeliveryScheduleDaysGap,
 } from "@survaq-jobs/libraries";
 import { createClient as createShopifyClient } from "./shopify";
-import { storage } from "./cloud-storage";
-import { parse } from "csv-parse/sync";
 import {
   cmsSKULink,
   getPendingShipmentCounts,
@@ -272,44 +270,6 @@ export const variants = async (): Promise<void> => {
 };
 
 export const smartShoppingPerformance = async () => {
-  const bucket = storage.bucket("smart-shopping-performance-csv");
-  const [files] = await bucket.getFiles();
-  const rows = (
-    await Promise.all(
-      files.map((file) => file.download().then(([bff]) => parse(bff.toString(), { from_line: 4 }))),
-    )
-  )
-    .flat()
-    .reduce<
-      {
-        date: string;
-        merchantCenterId: string;
-        name: string;
-        currencyCode: string;
-        cost: number;
-      }[]
-    >((res, [date, merchantCenterId, name, currencyCode, cost]) => {
-      if (merchantCenterId === " --") return res;
-      return [...res, { date, merchantCenterId, name, currencyCode, cost: Number(cost) }];
-    }, []);
-  const dates = [...new Set(rows.map(({ date }) => date))];
-
-  if (dates.length > 0) {
-    console.log("delete merchant_center.performances date: ", dates);
-    await deleteByField("performances", "merchant_center", "date", dates);
-  }
-  if (rows.length > 0) {
-    console.log("insert merchant_center.performances", rows.length, "records");
-    await insertRecords(
-      "performances",
-      "merchant_center",
-      ["date", "merchantCenterId", "name", "currencyCode", "cost"],
-      rows,
-    );
-  }
-
-  if (!process.env["DRY_RUN"]) await Promise.all(files.map((f) => f.delete()));
-
   const mcMapping = await getGoogleMerchantCenter();
 
   if (mcMapping.length > 0) {
