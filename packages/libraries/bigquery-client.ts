@@ -7,8 +7,7 @@ config();
 const { BIGQUERY_CREDENTIALS, NODE_ENV, DRY_RUN } = process.env;
 
 const credentials = JSON.parse(
-  BIGQUERY_CREDENTIALS ??
-    '{"client_email":"","private_key":"","project_id":""}',
+  BIGQUERY_CREDENTIALS ?? '{"client_email":"","private_key":"","project_id":""}',
 ) as { client_email: string; private_key: string; project_id: "" };
 
 export const client = new BigQuery(
@@ -20,16 +19,11 @@ export const client = new BigQuery(
       },
 );
 
-export const getRecords = async <
-  T extends Record<string, unknown> = Record<string, any>,
->(
+export const getRecords = async <T extends Record<string, unknown> = Record<string, any>>(
   table: string,
   dataset: string,
   columns: string[],
-  conditions: Record<
-    string,
-    string | { value: string; operator: string } | string[]
-  >,
+  conditions: Record<string, string | { value: string; operator: string } | string[]>,
 ): Promise<T[]> => {
   const [queries, values] = Object.entries(conditions).reduce<
     [Array<string>, Array<string | string[]>]
@@ -103,9 +97,7 @@ const makeUpdateQuery = (
   );
 };
 
-export const insertRecords = async <
-  T extends Record<string, string | number | boolean | null>,
->(
+export const insertRecords = async <T extends Record<string, string | number | boolean | null>>(
   table: string,
   dataset: string,
   columns: Array<keyof T>,
@@ -119,11 +111,7 @@ export const insertRecords = async <
     console.table(
       data
         .slice(0, 10)
-        .map((d) =>
-          Object.fromEntries(
-            Object.entries(d).filter(([k]) => columns.includes(k)),
-          ),
-        ),
+        .map((d) => Object.fromEntries(Object.entries(d).filter(([k]) => columns.includes(k)))),
     );
     if (data.length > 10) console.log("and more...");
     console.log(query);
@@ -175,17 +163,6 @@ export const deleteByField = async (
     `,
           [values],
         ),
-  });
-};
-
-export const truncateTable = async (table: string, dataset: string) => {
-  if (DRY_RUN) {
-    console.log("DRY RUN: TRUNCATE TABLE", dataset, table);
-    return;
-  }
-
-  await client.query({
-    query: `TRUNCATE TABLE ${dataset}.${table}`,
   });
 };
 

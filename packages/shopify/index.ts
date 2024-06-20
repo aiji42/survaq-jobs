@@ -5,9 +5,7 @@ import {
   sliceByNumber,
   sleep,
   updateRecords,
-  truncateTable,
   getShopifyProductGroups,
-  getGoogleMerchantCenter,
   updateSku,
   postMessage,
   MessageAttachment,
@@ -269,25 +267,6 @@ export const variants = async (): Promise<void> => {
   }
 };
 
-export const smartShoppingPerformance = async () => {
-  const mcMapping = await getGoogleMerchantCenter();
-
-  if (mcMapping.length > 0) {
-    console.log("delete merchant_center.mappings all records");
-    await truncateTable("mappings", "merchant_center");
-    console.log("insert merchant_center.mappings", mcMapping.length, "records");
-    await insertRecords(
-      "mappings",
-      "merchant_center",
-      ["feedId", "productGroupId"],
-      mcMapping.map(({ merchantCenterId, shopifyProductGroup }) => ({
-        feedId: merchantCenterId,
-        productGroupId: String(shopifyProductGroup),
-      })),
-    );
-  }
-};
-
 const skuScheduleShift = async () => {
   const alertNotifies: MessageAttachment[] = [];
   const infoNotifies: MessageAttachment[] = [];
@@ -405,8 +384,6 @@ const main = async () => {
   await Promise.all([products(), variants()]);
   console.log("Shift sku schedule");
   await skuScheduleShift();
-  console.log("Sync smart shopping performance");
-  await smartShoppingPerformance();
   console.log("Calc sku delivery schedule gap");
   await skuDeliveryScheduleGap();
 };

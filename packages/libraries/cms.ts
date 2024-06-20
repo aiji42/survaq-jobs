@@ -101,15 +101,6 @@ export const getShopifyProductGroups = async () => {
   });
 };
 
-export const getGoogleMerchantCenter = async () => {
-  return prisma.googleMerchantCenter.findMany({
-    select: {
-      merchantCenterId: true,
-      shopifyProductGroup: true,
-    },
-  });
-};
-
 export const getAllSkus = async () => {
   return prisma.shopifyCustomSKUs.findMany({
     include: {
