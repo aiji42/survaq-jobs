@@ -86,21 +86,6 @@ export const getActiveFacebookAdAlerts = async () => {
   });
 };
 
-export const getShopifyProductGroups = async () => {
-  return prisma.shopifyProductGroups.findMany({
-    select: {
-      id: true,
-      title: true,
-      ShopifyProducts: {
-        select: {
-          productId: true,
-        },
-      },
-      updatedAt: true,
-    },
-  });
-};
-
 export const getAllSkus = async () => {
   return prisma.shopifyCustomSKUs.findMany({
     include: {

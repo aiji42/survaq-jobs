@@ -61,42 +61,6 @@ export const getRecords = async <T extends Record<string, unknown> = Record<stri
   return res;
 };
 
-export const updateRecords = async (
-  table: string,
-  dataset: string,
-  data: Record<string, any>,
-  whereField: string,
-  whereValue: string | string[],
-) => {
-  const query = makeUpdateQuery(table, dataset, data, whereField, whereValue);
-  if (DRY_RUN) {
-    console.log("DRY RUN: update records", dataset, table);
-    console.log(query);
-  } else {
-    await client.query({
-      query,
-    });
-  }
-};
-
-const makeUpdateQuery = (
-  table: string,
-  dataset: string,
-  data: Record<string, any>,
-  whereField: string,
-  whereValue: string | string[],
-) => {
-  return sql.format(
-    `
-    UPDATE ${dataset}.${table} SET ${Object.keys(data)
-      .map((k) => `${k} = ?`)
-      .join(", ")}
-    WHERE ${whereField} ${Array.isArray(whereValue) ? "IN (?)" : "= ?"}
-    `,
-    [...Object.values(data), whereValue],
-  );
-};
-
 export const insertRecords = async <T extends Record<string, string | number | boolean | null>>(
   table: string,
   dataset: string,
@@ -164,19 +128,4 @@ export const deleteByField = async (
           [values],
         ),
   });
-};
-
-export const getLatestTimeAt = async (
-  table: string,
-  dataset: string,
-  column: string,
-): Promise<string> => {
-  const [res] = await client.query({
-    query: `SELECT ${column} FROM ${dataset}.${table}
-            ORDER BY ${column} DESC LIMIT 1;`,
-  });
-  if (res.length < 1) return "2000-01-01T00:00:00.000Z";
-
-  const latest = res[0][column].value;
-  return latest.replace(/\.\d{3}Z$/, "Z");
 };
