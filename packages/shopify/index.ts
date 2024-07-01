@@ -1,13 +1,4 @@
-import {
-  insertRecords,
-  deleteByField,
-  sliceByNumber,
-  updateSku,
-  postMessage,
-  MessageAttachment,
-  getAllSkus,
-  calcSKUDeliveryScheduleDaysGap,
-} from "@survaq-jobs/libraries";
+import { updateSku, postMessage, MessageAttachment, getAllSkus } from "@survaq-jobs/libraries";
 import {
   cmsSKULink,
   getPendingShipmentCounts,
@@ -111,30 +102,9 @@ const skuScheduleShift = async () => {
     await postMessage(infoNotifySlackChannel, "SKU調整処理通知", infoNotifies);
 };
 
-const skuDeliveryScheduleGap = async () => {
-  const gaps = await calcSKUDeliveryScheduleDaysGap();
-  // BigQueryに格納する前に同じ日のデータを削除
-  await deleteByField("sku_delivery_gaps", "shopify", "date", [
-    ...new Set(gaps.map(({ date }) => date)),
-  ]);
-
-  console.log("sku_delivery_gaps records:", gaps.length);
-  // 100件ずつに分割してBigQueryに格納
-  for (const items of sliceByNumber(gaps, 100)) {
-    await insertRecords(
-      "sku_delivery_gaps",
-      "shopify",
-      ["code", "date", "schedule", "days"],
-      items,
-    );
-  }
-};
-
 const main = async () => {
   console.log("Shift sku schedule");
   await skuScheduleShift();
-  console.log("Calc sku delivery schedule gap");
-  await skuDeliveryScheduleGap();
 };
 main()
   .then(() => {
